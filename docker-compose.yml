@@ -1,0 +1,16 @@
+# Local development database. Not for production.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: geo_owner
+      POSTGRES_PASSWORD: geo_owner
+      POSTGRES_DB: geo_dev
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - geo_pg:/var/lib/postgresql/data
+      - ./infra/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+
+volumes:
+  geo_pg:

@@ -1,0 +1,15 @@
+{
+  "name": "geo-platform",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "migrate": "npm run migrate -w @geo/api",
+    "seed:admin": "npm run seed:admin -w @geo/api",
+    "dev:api": "npm run dev -w @geo/api",
+    "dev:web": "npm run dev -w @geo/web",
+    "build": "npm run build -w @geo/api && npm run build -w @geo/web",
+    "test": "npm run test -w @geo/api",
+    "typecheck": "npm run typecheck -w @geo/api && npm run typecheck -w @geo/web"
+  },
+  "engines": { "node": ">=22.9" }
+}
