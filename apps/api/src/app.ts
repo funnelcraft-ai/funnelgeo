@@ -11,6 +11,10 @@ import { authRoutes } from './routes/auth.js';
 import { clientRoutes } from './routes/clients.js';
 import { fileRoutes } from './routes/files.js';
 import { teamRoutes } from './routes/team.js';
+import { trackerRoutes } from './routes/tracker.js';
+import { createEngines, type EngineSet } from './engines.js';
+import { createQueue } from './queue.js';
+import type { CallQueue } from './tracker/runs.js';
 import { isTrustedProxy, requestHost, resolveTenant } from './tenant.js';
 
 export interface AppOptions {
@@ -18,6 +22,10 @@ export interface AppOptions {
   resolveCname?: CnameResolver;
   /** Outgoing email. Replaced in tests. */
   mailer?: Mailer;
+  /** Answer engines. Replaced in tests. */
+  engines?: EngineSet;
+  /** Where engine calls are queued for the worker. Replaced in tests. */
+  queue?: CallQueue;
 }
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
@@ -82,6 +90,15 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(teamRoutes, { mailer });
   await app.register(clientRoutes);
   await app.register(adminRoutes);
+
+  const engines = options.engines ?? createEngines();
+  let queue = options.queue;
+  if (!queue) {
+    const own = createQueue();
+    app.addHook('onClose', () => own.close());
+    queue = own;
+  }
+  await app.register(trackerRoutes, { engines, queue });
 
   return app;
 }

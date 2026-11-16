@@ -10,6 +10,13 @@ const platformDomain = (process.env.PLATFORM_DOMAIN ?? 'localhost').toLowerCase(
 const sessionSecret = required('SESSION_SECRET');
 if (sessionSecret.length < 32) throw new Error('SESSION_SECRET must be at least 32 characters');
 
+if (process.env.ENGINE_MODE && !['live', 'mock'].includes(process.env.ENGINE_MODE)) {
+  throw new Error("ENGINE_MODE must be 'live' or 'mock'");
+}
+if (process.env.ENGINE_MODE === 'mock' && process.env.NODE_ENV === 'production') {
+  throw new Error('ENGINE_MODE=mock is not allowed in production: it would present generated answers as real');
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   host: process.env.HOST ?? '127.0.0.1',
@@ -30,6 +37,27 @@ export const config = {
   mailFrom: process.env.MAIL_FROM ?? `no-reply@${platformDomain}`,
   /** Where uploaded logos and favicons are stored. */
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? 'data/uploads'),
+  /** Redis for the job queue (BullMQ). */
+  redisUrl: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
+  /** Namespaces queue keys, so several environments can share one Redis. */
+  queuePrefix: process.env.QUEUE_PREFIX ?? 'funnelgeo',
+  /**
+   * 'live' calls the real answer engines. 'mock' answers with generated
+   * stand-in text so the product can be exercised without API keys; it is
+   * refused in production and every run made with it is labelled.
+   */
+  engineMode: (process.env.ENGINE_MODE ?? 'live') as 'live' | 'mock',
+  engineTimeoutMs: Number(process.env.ENGINE_TIMEOUT_MS ?? 90_000),
+  /** Calls per second allowed to each engine, across all workers. */
+  engineCallsPerSecond: Number(process.env.ENGINE_CALLS_PER_SECOND ?? 2),
+  /** Attempts per call before it is recorded as failed (and refunded). */
+  engineAttempts: Number(process.env.ENGINE_ATTEMPTS ?? 3),
+  workerConcurrency: Number(process.env.WORKER_CONCURRENCY ?? 4),
+  engines: {
+    chatgpt: { apiKey: process.env.OPENAI_API_KEY ?? '', model: process.env.OPENAI_MODEL ?? '', baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com' },
+    perplexity: { apiKey: process.env.PERPLEXITY_API_KEY ?? '', model: process.env.PERPLEXITY_MODEL ?? '', baseUrl: process.env.PERPLEXITY_BASE_URL ?? 'https://api.perplexity.ai' },
+    gemini: { apiKey: process.env.GEMINI_API_KEY ?? '', model: process.env.GEMINI_MODEL ?? '', baseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com' },
+  },
   secureCookies: process.env.NODE_ENV === 'production',
   isTest: process.env.NODE_ENV === 'test',
 };
