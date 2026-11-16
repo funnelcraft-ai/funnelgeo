@@ -4,16 +4,20 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { config } from './config.js';
 import { HttpError } from './http.js';
+import { createMailer, type Mailer } from './mailer.js';
 import { adminRoutes } from './routes/admin.js';
 import { agencyRoutes, type CnameResolver } from './routes/agency.js';
 import { authRoutes } from './routes/auth.js';
 import { clientRoutes } from './routes/clients.js';
+import { fileRoutes } from './routes/files.js';
 import { teamRoutes } from './routes/team.js';
 import { isTrustedProxy, requestHost, resolveTenant } from './tenant.js';
 
 export interface AppOptions {
   /** DNS lookup used to verify custom domains. Replaced in tests. */
   resolveCname?: CnameResolver;
+  /** Outgoing email. Replaced in tests. */
+  mailer?: Mailer;
 }
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
@@ -44,6 +48,12 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     if (err instanceof HttpError) {
       return reply.code(err.status).send({ error: { code: err.code, message: err.message } });
     }
+    if (err?.statusCode === 413) {
+      return reply.code(413).send({ error: { code: 'too_large', message: 'That file is too large. The limit is 1 MB.' } });
+    }
+    if (err?.statusCode === 415) {
+      return reply.code(415).send({ error: { code: 'invalid_image', message: 'Upload a PNG, JPEG or WebP image' } });
+    }
     if (err?.statusCode === 429) {
       return reply.code(429).send({ error: { code: 'rate_limited', message: 'Too many attempts. Try again in a minute.' } });
     }
@@ -65,9 +75,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     reply.code(404).send({ error: { code: 'not_found', message: 'Not found' } });
   });
 
-  await app.register(authRoutes);
+  const mailer = options.mailer ?? createMailer();
+  await app.register(authRoutes, { mailer });
   await app.register(agencyRoutes, { resolveCname: options.resolveCname ?? dnsResolveCname });
-  await app.register(teamRoutes);
+  await app.register(fileRoutes);
+  await app.register(teamRoutes, { mailer });
   await app.register(clientRoutes);
   await app.register(adminRoutes);
 

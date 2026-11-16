@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { LogoutButton } from '@/components/AuthForms';
-import { Brand } from '@/components/Brand';
+import { Brand, initials } from '@/components/Brand';
+import { NavLinks, SignOutButton, type NavItem } from '@/components/Shell';
 import { getSession, getTenant } from '@/lib/server';
 import { ROLE_LABEL } from '@/lib/types';
 
@@ -13,28 +13,29 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
   if (!session) redirect('/login');
 
-  const { role } = session.user;
+  const { role, name } = session.user;
   const isStaff = role === 'agency_owner' || role === 'agency_member';
+  const items: NavItem[] = [{ href: '/clients', label: 'Overview', icon: 'grid' }];
+  if (isStaff) items.push({ href: '/team', label: 'Team', icon: 'users' });
+  if (role === 'agency_owner') items.push({ href: '/settings', label: 'Settings', icon: 'sliders' });
 
   return (
-    <>
+    <div className="shell">
       <header className="topbar">
-        <div className="topbar-inner">
-          <Brand tenant={tenant} href="/clients" />
-          <nav className="nav" aria-label="Main">
-            <a href="/clients">{isStaff ? 'Clients' : 'Overview'}</a>
-            {isStaff && <a href="/team">Team</a>}
-            {role === 'agency_owner' && <a href="/settings">Settings</a>}
-          </nav>
-          <div className="who">
-            <span>
-              {session.user.name} · {ROLE_LABEL[role]}
+        <Brand tenant={tenant} href="/clients" />
+        <NavLinks items={items} />
+        <div className="top-right">
+          <div className="user">
+            <span className="avatar" aria-hidden="true">{initials(name)}</span>
+            <span className="user-text">
+              <strong>{name}</strong>
+              <span>{ROLE_LABEL[role]}</span>
             </span>
-            <LogoutButton />
           </div>
+          <SignOutButton />
         </div>
       </header>
-      <main className="main">{children}</main>
-    </>
+      <main>{children}</main>
+    </div>
   );
 }

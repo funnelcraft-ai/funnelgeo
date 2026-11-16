@@ -6,3 +6,4 @@ dist/
 spike/results/
 next-env.d.ts
 *.tsbuildinfo
+apps/api/data/

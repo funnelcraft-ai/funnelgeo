@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { AdminPanel } from '@/components/AdminPanel';
-import { LogoutButton } from '@/components/AuthForms';
+import { Brand, initials } from '@/components/Brand';
+import { NavLinks, SignOutButton } from '@/components/Shell';
 import { apiGet, getSession, getTenant } from '@/lib/server';
 import type { AdminAgency, Plan } from '@/lib/types';
 
@@ -17,22 +18,24 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <>
+    <div className="shell">
       <header className="topbar">
-        <div className="topbar-inner">
-          <div className="brand">{tenant.name}</div>
-          <nav className="nav" aria-label="Main">
-            <a href="/admin">Agencies</a>
-          </nav>
-          <div className="who">
-            <span>{session.user.email}</span>
-            <LogoutButton />
+        <Brand tenant={tenant} href="/admin" />
+        <NavLinks items={[{ href: '/admin', label: 'Agencies', icon: 'building' }]} />
+        <div className="top-right">
+          <div className="user">
+            <span className="avatar" aria-hidden="true">{initials(session.user.name)}</span>
+            <span className="user-text">
+              <strong>{session.user.name}</strong>
+              <span>{session.user.email}</span>
+            </span>
           </div>
+          <SignOutButton />
         </div>
       </header>
-      <main className="main">
+      <main>
         <AdminPanel agencies={agencies?.agencies ?? []} plans={plans?.plans ?? []} />
       </main>
-    </>
+    </div>
   );
 }

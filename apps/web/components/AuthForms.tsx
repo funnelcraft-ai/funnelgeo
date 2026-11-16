@@ -46,6 +46,7 @@ export function LoginForm({ next }: { next: string }) {
       </div>
       {error && <p className="error" role="alert">{error}</p>}
       <button className="block" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+      <p className="auth-foot"><a href="/forgot">Forgot your password?</a></p>
     </form>
   );
 }
@@ -144,16 +145,63 @@ export function Handoff({ token }: { token: string }) {
   );
 }
 
-export function LogoutButton() {
+export function ForgotForm() {
+  const { error, busy, run } = useSubmit();
+  const [sentTo, setSentTo] = useState('');
+  if (sentTo) {
+    return (
+      <>
+        <p className="notice" role="status">
+          If <strong>{sentTo}</strong> has an account here, a reset link is on its way. It works for one hour.
+        </p>
+        <p className="auth-foot"><a href="/login">Back to sign in</a></p>
+      </>
+    );
+  }
   return (
-    <button
-      className="link"
-      onClick={async () => {
-        await send('POST', '/v1/auth/logout').catch(() => {});
-        window.location.assign('/login');
+    <form
+      onSubmit={(e) => {
+        const v = values(e);
+        run(async () => {
+          await send('POST', '/v1/auth/forgot', { email: v.email });
+          setSentTo(v.email ?? '');
+        });
       }}
     >
-      Sign out
-    </button>
+      <div className="field">
+        <label htmlFor="email">Email</label>
+        <input id="email" name="email" type="email" autoComplete="username" required autoFocus />
+      </div>
+      {error && <p className="error" role="alert">{error}</p>}
+      <button className="block" disabled={busy}>{busy ? 'Sending…' : 'Email me a reset link'}</button>
+      <p className="auth-foot"><a href="/login">Back to sign in</a></p>
+    </form>
+  );
+}
+
+export function ResetForm({ token, email, next }: { token: string; email: string; next: string }) {
+  const { error, busy, run } = useSubmit();
+  return (
+    <form
+      onSubmit={(e) => {
+        const v = values(e);
+        run(async () => {
+          await send('POST', '/v1/auth/reset', { token, password: v.password });
+          window.location.assign(next);
+        });
+      }}
+    >
+      <div className="field">
+        <label htmlFor="email">Email</label>
+        <input id="email" type="email" value={email} readOnly autoComplete="username" />
+      </div>
+      <div className="field">
+        <label htmlFor="password">New password</label>
+        <input id="password" name="password" type="password" autoComplete="new-password" required minLength={10} autoFocus />
+        <p className="hint">At least 10 characters. You will be signed out everywhere else.</p>
+      </div>
+      {error && <p className="error" role="alert">{error}</p>}
+      <button className="block" disabled={busy}>{busy ? 'Saving…' : 'Save new password'}</button>
+    </form>
   );
 }

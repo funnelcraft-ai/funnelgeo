@@ -1,15 +1,19 @@
 import assert from 'node:assert/strict';
+import { rm } from 'node:fs/promises';
 import { after, before, describe, test } from 'node:test';
 import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { buildApp } from '../src/app.js';
 import { appPool, closePools, ownerPool } from '../src/db.js';
+import type { Mail } from '../src/mailer.js';
 import { migrate } from '../src/migrate.js';
 import { hashPassword } from '../src/security.js';
 
 const PLATFORM = 'platform.test';
 const PASSWORD = 'correct-horse-battery';
 const cnames = new Map<string, string[]>();
+const sent: Mail[] = [];
+let failMail = false;
 let app: FastifyInstance;
 
 interface CallOptions {
@@ -59,6 +63,13 @@ before(async () => {
   await owner.end();
   await migrate(process.env.DATABASE_OWNER_URL!, process.env.APP_DB_PASSWORD);
   app = await buildApp({
+    mailer: {
+      enabled: true,
+      async send(mail) {
+        if (failMail) throw new Error('smtp down');
+        sent.push(mail);
+      },
+    },
     resolveCname: async (host) => {
       const found = cnames.get(host);
       if (!found) throw Object.assign(new Error('not found'), { code: 'ENOTFOUND' });
@@ -362,5 +373,143 @@ describe('plans and super admin', () => {
     assert.equal(login.json.error.code, 'agency_suspended');
     await call('PATCH', `/v1/admin/agencies/${id}`, { ...admin, body: { status: 'active' } });
     assert.equal((await call('GET', '/v1/clients', owner)).status, 200);
+  });
+});
+
+describe('email, password reset and uploads', () => {
+  let owner: Awaited<ReturnType<typeof signup>>;
+  let other: Awaited<ReturnType<typeof signup>>;
+  const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('fake-png-body')]);
+  const linkIn = (mail: Mail) => new URL(mail.text.match(/https?:\/\/\S+/)![0]);
+
+  async function upload(who: { host: string; cookie: string }, kind: string, body: Buffer, type = 'image/png') {
+    const res = await app.inject({ method: 'PUT', url: `/v1/agency/branding/${kind}`, headers: { host: who.host, cookie: who.cookie, 'content-type': type }, payload: body });
+    return { status: res.statusCode, json: res.json() as any };
+  }
+  const fetchFile = (url: string, host: string) => app.inject({ method: 'GET', url: url.replace(/^\/api/, ''), headers: { host } });
+
+  before(async () => {
+    await rm(process.env.UPLOAD_DIR!, { recursive: true, force: true });
+    owner = await signup('Mail House', 'owner@mailhouse.test');
+    other = await signup('Other House', 'owner@otherhouse.test');
+    await call('PATCH', '/v1/agency', { ...owner, body: { branding: { senderName: 'Mail House Team', primaryColor: '#112233' } } });
+  });
+
+  test('an invite is emailed from the agency, with a working link and no platform name', async () => {
+    sent.length = 0;
+    const created = await call('POST', '/v1/team/invites', { ...owner, body: { role: 'agency_member', email: 'new@mailhouse.test' } });
+    assert.equal(created.json.emailed, true);
+    assert.equal(sent.length, 1);
+    const mail = sent[0]!;
+    assert.equal(mail.to, 'new@mailhouse.test');
+    assert.equal(mail.fromName, 'Mail House Team');
+    assert.equal(mail.subject, 'Join Mail House');
+    assert.ok(mail.html.includes('#112233'));
+    assert.ok(!`${mail.subject}${mail.text}${mail.html}`.includes('Test Platform'));
+    const link = linkIn(mail);
+    assert.equal(link.hostname, owner.host);
+    assert.equal(link.href, created.json.inviteUrl);
+    const token = link.pathname.split('/').pop()!;
+    assert.equal((await call('POST', '/v1/invites/accept', { host: owner.host, body: { token, name: 'New', password: PASSWORD } })).status, 201);
+  });
+
+  test('an invite survives a failed email and says so', async () => {
+    failMail = true;
+    const created = await call('POST', '/v1/team/invites', { ...owner, body: { role: 'agency_member', email: 'bounce@mailhouse.test' } });
+    failMail = false;
+    assert.equal(created.status, 201);
+    assert.equal(created.json.emailed, false);
+    assert.ok(created.json.inviteUrl);
+  });
+
+  test('user-supplied names are escaped in email HTML', async () => {
+    const client = await call('POST', '/v1/clients', { ...owner, body: { name: '<script>alert(1)</script> & Co' } });
+    sent.length = 0;
+    await call('POST', '/v1/team/invites', { ...owner, body: { role: 'client_viewer', email: 'viewer@co.test', clientId: client.json.client.id } });
+    assert.ok(!sent[0]!.html.includes('<script>'));
+    assert.ok(sent[0]!.html.includes('&lt;script&gt;'));
+  });
+
+  test('forgot password answers the same for known and unknown emails', async () => {
+    sent.length = 0;
+    const unknown = await call('POST', '/v1/auth/forgot', { host: owner.host, body: { email: 'ghost@mailhouse.test' } });
+    const known = await call('POST', '/v1/auth/forgot', { host: owner.host, body: { email: 'owner@mailhouse.test' } });
+    assert.deepEqual(unknown.json, known.json);
+    assert.equal(unknown.status, 200);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0]!.to, 'owner@mailhouse.test');
+    assert.equal(sent[0]!.subject, 'Reset your Mail House password');
+  });
+
+  test('a reset link works once, only on its workspace, and ends older sessions', async () => {
+    sent.length = 0;
+    await call('POST', '/v1/auth/forgot', { host: owner.host, body: { email: 'owner@mailhouse.test' } });
+    const link = linkIn(sent[0]!);
+    assert.equal(link.hostname, owner.host);
+    const token = link.pathname.split('/').pop()!;
+    const NEW = 'a-brand-new-password';
+
+    assert.equal((await call('GET', `/v1/auth/reset/${token}`, { host: other.host })).status, 404);
+    assert.equal((await call('POST', '/v1/auth/reset', { host: other.host, body: { token, password: NEW } })).status, 404);
+    assert.equal((await call('GET', `/v1/auth/reset/${token}`, { host: owner.host })).json.email, 'owner@mailhouse.test');
+    assert.equal((await call('POST', '/v1/auth/reset', { host: owner.host, body: { token, password: 'short' } })).status, 400);
+
+    const done = await call('POST', '/v1/auth/reset', { host: owner.host, body: { token, password: NEW } });
+    assert.equal(done.status, 200);
+    assert.equal((await call('GET', '/v1/me', { host: owner.host, cookie: done.cookie })).status, 200);
+    assert.equal((await call('GET', '/v1/me', owner)).status, 401, 'the session from before the reset is dead');
+    assert.equal((await call('POST', '/v1/auth/reset', { host: owner.host, body: { token, password: NEW } })).status, 404);
+    assert.equal((await call('POST', '/v1/auth/login', { host: owner.host, body: { email: 'owner@mailhouse.test', password: PASSWORD } })).status, 401);
+    assert.equal((await call('POST', '/v1/auth/login', { host: owner.host, body: { email: 'owner@mailhouse.test', password: NEW } })).status, 200);
+    owner.cookie = done.cookie!;
+  });
+
+  test('a requested reset replaces any earlier link', async () => {
+    sent.length = 0;
+    await call('POST', '/v1/auth/forgot', { host: other.host, body: { email: 'owner@otherhouse.test' } });
+    await call('POST', '/v1/auth/forgot', { host: other.host, body: { email: 'owner@otherhouse.test' } });
+    const [first, second] = sent.map((m) => linkIn(m).pathname.split('/').pop()!);
+    assert.equal((await call('GET', `/v1/auth/reset/${first}`, { host: other.host })).status, 404);
+    assert.equal((await call('GET', `/v1/auth/reset/${second}`, { host: other.host })).status, 200);
+  });
+
+  test('a logo upload is stored, served back byte for byte, and replaced cleanly', async () => {
+    const up = await upload(owner, 'logo', PNG);
+    assert.equal(up.status, 200, JSON.stringify(up.json));
+    assert.match(up.json.url, /^\/api\/v1\/files\/[0-9a-f-]{36}\/logo-[A-Za-z0-9_-]{16}\.png$/);
+    assert.equal((await call('GET', '/v1/tenant', { host: owner.host })).json.branding.logoUrl, up.json.url);
+
+    const served = await fetchFile(up.json.url, owner.host);
+    assert.equal(served.statusCode, 200);
+    assert.equal(served.headers['content-type'], 'image/png');
+    assert.equal(served.headers['x-content-type-options'], 'nosniff');
+    assert.ok(served.rawPayload.equals(PNG));
+
+    const again = await upload(owner, 'logo', PNG);
+    assert.equal((await fetchFile(up.json.url, owner.host)).statusCode, 404, 'the replaced file is deleted');
+    assert.equal((await fetchFile(again.json.url, owner.host)).statusCode, 200);
+
+    // The logo appears in emails as an absolute URL on the workspace's own address.
+    sent.length = 0;
+    await call('POST', '/v1/auth/forgot', { host: owner.host, body: { email: 'owner@mailhouse.test' } });
+    assert.ok(sent[0]!.html.includes(`https://${owner.host}${again.json.url}`));
+
+    const removed = await app.inject({ method: 'DELETE', url: '/v1/agency/branding/logo', headers: { host: owner.host, cookie: owner.cookie } });
+    assert.equal(removed.statusCode, 200);
+    assert.equal((await fetchFile(again.json.url, owner.host)).statusCode, 404);
+    assert.equal((await call('GET', '/v1/tenant', { host: owner.host })).json.branding.logoUrl, undefined);
+  });
+
+  test('uploads reject non-images, oversize files, other roles and path tricks', async () => {
+    assert.equal((await upload(owner, 'logo', Buffer.from('<svg onload=alert(1)>'))).status, 400);
+    assert.equal((await upload(owner, 'logo', Buffer.from('<svg/>'), 'image/svg+xml')).status, 415);
+    assert.equal((await upload(owner, 'logo', Buffer.concat([PNG, Buffer.alloc(1024 * 1024)]))).status, 413);
+    assert.equal((await upload(owner, 'banner', PNG)).status, 400);
+    const member = await invite(owner, { role: 'agency_member', email: 'uploader@mailhouse.test' }, 'Uploader');
+    assert.equal((await upload(member, 'logo', PNG)).status, 403);
+    const id = '00000000-0000-4000-8000-000000000000';
+    for (const file of ['..%2F..%2Fetc%2Fpasswd', 'logo-aaaaaaaaaaaaaaaa.svg', '.env']) {
+      assert.ok([400, 404].includes((await fetchFile(`/v1/files/${id}/${file}`, owner.host)).statusCode), file);
+    }
   });
 });

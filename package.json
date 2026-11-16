@@ -1,5 +1,5 @@
 {
-  "name": "geo-platform",
+  "name": "funnelgeo",
   "private": true,
   "workspaces": ["apps/*"],
   "scripts": {

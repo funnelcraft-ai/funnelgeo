@@ -53,6 +53,8 @@ export interface TokenPayload {
   /** Agency id, or null for a super admin. */
   aid: string | null;
   typ: 'session' | 'handoff';
+  /** The user's session epoch when the token was issued. */
+  ep: number;
 }
 
 export const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -60,7 +62,7 @@ const HANDOFF_TTL_SECONDS = 60;
 
 export async function signToken(payload: TokenPayload): Promise<string> {
   const ttl = payload.typ === 'session' ? SESSION_TTL_SECONDS : HANDOFF_TTL_SECONDS;
-  return new SignJWT({ aid: payload.aid, typ: payload.typ })
+  return new SignJWT({ aid: payload.aid, typ: payload.typ, ep: payload.ep })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -73,7 +75,8 @@ export async function verifyToken(token: string, typ: TokenPayload['typ']): Prom
     const { payload } = await jwtVerify(token, key, { algorithms: ['HS256'] });
     if (payload.typ !== typ || typeof payload.sub !== 'string') return null;
     const aid = typeof payload.aid === 'string' ? payload.aid : null;
-    return { sub: payload.sub, aid, typ };
+    const ep = typeof payload.ep === 'number' ? payload.ep : 0;
+    return { sub: payload.sub, aid, typ, ep };
   } catch {
     return null;
   }

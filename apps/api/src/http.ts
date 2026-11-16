@@ -62,8 +62,11 @@ export function scope(req: FastifyRequest): TenantContext {
 
 const COOKIE = 'sid';
 
-export async function startSession(reply: FastifyReply, user: { id: string; agencyId: string | null }): Promise<void> {
-  const token = await signToken({ sub: user.id, aid: user.agencyId, typ: 'session' });
+export async function startSession(
+  reply: FastifyReply,
+  user: { id: string; agencyId: string | null; sessionEpoch: number },
+): Promise<void> {
+  const token = await signToken({ sub: user.id, aid: user.agencyId, typ: 'session', ep: user.sessionEpoch });
   // Host-only cookie: it is never sent to another agency's hostname.
   reply.setCookie(COOKIE, token, {
     httpOnly: true,
@@ -85,6 +88,7 @@ interface UserRow {
   email: string;
   name: string;
   role: Role;
+  session_epoch?: number;
 }
 
 export function toSessionUser(row: UserRow): SessionUser {
@@ -95,14 +99,16 @@ export function toSessionUser(row: UserRow): SessionUser {
  * Resolves the signed-in user for this hostname. A session is valid only on
  * the host it was issued for: an agency session on its own workspace, a super
  * admin session on the platform host. The user row is re-read on every
- * request, so removing a user ends their access immediately.
+ * request, so removing a user ends their access immediately, and so does a
+ * password change (the session epoch no longer matches).
  */
 async function authenticate(req: FastifyRequest): Promise<SessionUser | null> {
   const token = req.cookies[COOKIE];
   if (!token) return null;
   const payload = await verifyToken(token, 'session');
   if (!payload) return null;
-  const columns = 'id, agency_id, client_id, email, name, role';
+  const columns = 'id, agency_id, client_id, email, name, role, session_epoch';
+  const current = (row: UserRow | undefined) => (row && row.session_epoch === payload.ep ? toSessionUser(row) : null);
 
   if (req.tenant.kind === 'platform') {
     if (payload.aid !== null) return null;
@@ -110,7 +116,7 @@ async function authenticate(req: FastifyRequest): Promise<SessionUser | null> {
       `SELECT ${columns} FROM users WHERE id = $1 AND agency_id IS NULL AND role = 'super_admin'`,
       [payload.sub],
     );
-    return rows[0] ? toSessionUser(rows[0]) : null;
+    return current(rows[0]);
   }
 
   if (req.tenant.kind === 'agency') {
@@ -121,7 +127,7 @@ async function authenticate(req: FastifyRequest): Promise<SessionUser | null> {
       const { rows } = await db.query<UserRow>(`SELECT ${columns} FROM users WHERE id = $1`, [payload.sub]);
       return rows[0];
     });
-    return row ? toSessionUser(row) : null;
+    return current(row);
   }
 
   return null;

@@ -14,6 +14,8 @@ import {
   toSessionUser,
   uuidParam,
 } from '../http.js';
+import { brandFor, inviteEmail } from '../emails.js';
+import type { Mailer } from '../mailer.js';
 import { hashPassword, hashToken, newToken } from '../security.js';
 import { emailSchema, nameSchema, passwordSchema } from './auth.js';
 
@@ -26,7 +28,7 @@ const inviteSchema = z.discriminatedUnion('role', [
 
 const acceptSchema = z.object({ token: z.string().min(20).max(200), name: nameSchema, password: passwordSchema });
 
-export async function teamRoutes(app: FastifyInstance): Promise<void> {
+export async function teamRoutes(app: FastifyInstance, opts: { mailer: Mailer }): Promise<void> {
   app.get('/v1/team', { preHandler: requireRole(...AGENCY_STAFF) }, async (req) =>
     withTenant(scope(req), async (db) => {
       const users = await db.query(
@@ -63,13 +65,14 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
   );
 
   /**
-   * Creates an invite and returns its link. Sending the email is added with
-   * the email provider in a later milestone; until then the owner shares the link.
+   * Creates an invite, emails it, and returns its link as well, so the owner
+   * can still share it by hand if the email does not arrive.
    */
   app.post('/v1/team/invites', { preHandler: requireRole('agency_owner') }, async (req, reply) => {
     const body = parse(inviteSchema, req.body);
     const agency = agencyOf(req);
     const token = newToken();
+    let clientName: string | null = null;
 
     const invite = await withTenant(scope(req), async (db) => {
       const existing = await db.query(`SELECT 1 FROM users WHERE email = $1`, [body.email]);
@@ -77,8 +80,9 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
 
       const clientId = body.role === 'client_viewer' ? body.clientId : null;
       if (clientId) {
-        const client = await db.query(`SELECT 1 FROM clients WHERE id = $1`, [clientId]);
+        const client = await db.query(`SELECT name FROM clients WHERE id = $1`, [clientId]);
         if (client.rows.length === 0) throw notFound('Client not found');
+        clientName = client.rows[0].name;
       }
 
       await db.query(`DELETE FROM invites WHERE email = $1 AND accepted_at IS NULL`, [body.email]);
@@ -91,10 +95,25 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
       return rows[0];
     });
 
+    const inviteUrl = `${originFor(agencyHost(agency))}/invite/${token}`;
+    let emailed = false;
+    if (opts.mailer.enabled) {
+      try {
+        await opts.mailer.send(inviteEmail(brandFor(req.tenant), { to: invite.email, inviterName: req.user!.name, clientName, url: inviteUrl }));
+        emailed = true;
+      } catch (err) {
+        // The invite still exists; the owner is told to share the link instead.
+        req.log.error({ err }, 'invite email failed');
+      }
+    } else {
+      await opts.mailer.send(inviteEmail(brandFor(req.tenant), { to: invite.email, inviterName: req.user!.name, clientName, url: inviteUrl }));
+    }
+
     reply.code(201);
     return {
       invite: { id: invite.id, email: invite.email, role: invite.role, clientId: invite.client_id, expiresAt: invite.expires_at },
-      inviteUrl: `${originFor(agencyHost(agency))}/invite/${token}`,
+      inviteUrl,
+      emailed,
     };
   });
 
@@ -156,14 +175,14 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
         const { rows } = await db.query(
           `INSERT INTO users (agency_id, client_id, email, name, password_hash, role, last_login_at)
            VALUES ($1, $2, $3, $4, $5, $6, now())
-           RETURNING id, agency_id, client_id, email, name, role`,
+           RETURNING id, agency_id, client_id, email, name, role, session_epoch`,
           [agency.id, invite.client_id, invite.email, body.name, passwordHash, invite.role],
         );
         await db.query(`UPDATE invites SET accepted_at = now() WHERE id = $1`, [invite.id]);
         return rows[0];
       });
 
-      await startSession(reply, { id: user.id, agencyId: agency.id });
+      await startSession(reply, { id: user.id, agencyId: agency.id, sessionEpoch: user.session_epoch });
       reply.code(201);
       return { user: toSessionUser(user) };
     },

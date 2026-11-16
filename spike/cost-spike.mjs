@@ -12,10 +12,13 @@
 // names are deliberately not defaulted: use the current model each provider
 // recommends for search-grounded answers.
 //
-// NOTE: the request and response shapes below follow each provider's public
-// API as understood when this was written and have not been run against the
-// live services. If a provider returns an error on the first call, check its
-// current API reference and adjust the matching function; each is ~20 lines.
+// The request and response shapes below were checked against each provider's
+// API documentation on 16 Nov 2026, but have not been run against the live
+// services (that needs your keys). Two things to watch:
+//   - Perplexity documents a newer "Agent API" alongside Sonar;
+//   - Google labels generateContent as legacy next to its "Interactions API".
+// Both older endpoints are still documented. If either starts failing, the
+// matching function below is about 20 lines to adjust.
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -90,6 +93,8 @@ const engines = [
         citations: unique([...(data.citations ?? []), ...(data.search_results ?? []).map((r) => r.url)]),
         tokensIn: data.usage?.prompt_tokens ?? 0,
         tokensOut: data.usage?.completion_tokens ?? 0,
+        // Perplexity reports what the call cost (in USD); prefer that to an estimate.
+        reportedCost: data.usage?.cost?.total_cost,
       };
     },
   },
@@ -148,10 +153,10 @@ async function worker() {
   while (cursor < jobs.length) {
     const job = jobs[cursor++];
     const started = performance.now();
-    const row = { engine: job.engine.key, promptNo: job.promptNo, sample: job.sample, ok: false, ms: 0, tokensIn: 0, tokensOut: 0, citations: 0, chars: 0, error: '' };
+    const row = { engine: job.engine.key, promptNo: job.promptNo, sample: job.sample, ok: false, ms: 0, tokensIn: 0, tokensOut: 0, citations: 0, chars: 0, reportedCost: '', error: '' };
     try {
       const answer = await job.engine.ask(job.prompt);
-      Object.assign(row, { ok: true, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, citations: answer.citations.length, chars: answer.text.length });
+      Object.assign(row, { ok: true, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, citations: answer.citations.length, chars: answer.text.length, reportedCost: answer.reportedCost ?? '' });
     } catch (err) {
       row.error = String(err.message ?? err).replace(/\s+/g, ' ').slice(0, 200);
     }
@@ -178,8 +183,13 @@ const summary = active.map((engine) => {
   const ok = all.filter((r) => r.ok);
   const tokensIn = mean(ok.map((r) => r.tokensIn));
   const tokensOut = mean(ok.map((r) => r.tokensOut));
+  const reported = ok.map((r) => r.reportedCost).filter((c) => typeof c === 'number');
   const priced = Number.isFinite(engine.priceIn) && Number.isFinite(engine.priceOut);
-  const costPerCall = priced ? (tokensIn * engine.priceIn + tokensOut * engine.priceOut) / 1e6 + engine.priceCall : null;
+  const costPerCall = reported.length
+    ? mean(reported)
+    : priced
+      ? (tokensIn * engine.priceIn + tokensOut * engine.priceOut) / 1e6 + engine.priceCall
+      : null;
   return {
     engine: engine.key,
     model: engine.model,
@@ -206,6 +216,6 @@ if (failures.length) console.log(`\n${failures.length} failed calls. First error
 const outDir = path.join(here, 'results');
 await mkdir(outDir, { recursive: true });
 const outFile = path.join(outDir, `spike-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`);
-const columns = ['engine', 'promptNo', 'sample', 'ok', 'ms', 'tokensIn', 'tokensOut', 'citations', 'chars', 'error'];
+const columns = ['engine', 'promptNo', 'sample', 'ok', 'ms', 'tokensIn', 'tokensOut', 'citations', 'chars', 'reportedCost', 'error'];
 await writeFile(outFile, [columns.join(','), ...rows.map((r) => columns.map((c) => JSON.stringify(r[c] ?? '')).join(','))].join('\n') + '\n');
 console.log(`\nPer-call results: ${outFile}`);

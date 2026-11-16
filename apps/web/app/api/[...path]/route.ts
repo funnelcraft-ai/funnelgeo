@@ -29,7 +29,8 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     }
   }
 
-  const body = isWrite ? await req.text() : '';
+  // Bytes, not text: logo uploads pass through here too.
+  const body = isWrite ? Buffer.from(await req.arrayBuffer()) : null;
   const headers = new Headers({
     'x-forwarded-host': host,
     'x-forwarded-for': req.headers.get('x-forwarded-for') ?? '',
@@ -37,19 +38,23 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   });
   const cookie = req.headers.get('cookie');
   if (cookie) headers.set('cookie', cookie);
-  if (body) headers.set('content-type', req.headers.get('content-type') ?? 'application/json');
+  if (body?.length) headers.set('content-type', req.headers.get('content-type') ?? 'application/json');
 
   const target = `${API_URL}/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;
   let upstream: Response;
   try {
-    upstream = await fetch(target, { method: req.method, headers, body: body || undefined, cache: 'no-store', redirect: 'manual' });
+    upstream = await fetch(target, { method: req.method, headers, body: body?.length ? body : undefined, cache: 'no-store', redirect: 'manual' });
   } catch {
     return Response.json({ error: { code: 'unavailable', message: 'The service is unavailable. Try again shortly.' } }, { status: 502 });
   }
 
   const out = new Headers({ 'content-type': upstream.headers.get('content-type') ?? 'application/json' });
+  for (const name of ['cache-control', 'x-content-type-options', 'content-security-policy']) {
+    const value = upstream.headers.get(name);
+    if (value) out.set(name, value);
+  }
   for (const value of upstream.headers.getSetCookie()) out.append('set-cookie', value);
-  return new Response(await upstream.text(), { status: upstream.status, headers: out });
+  return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: out });
 }
 
 export { proxy as GET, proxy as POST, proxy as PATCH, proxy as PUT, proxy as DELETE };

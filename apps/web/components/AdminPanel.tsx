@@ -1,13 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { send } from '@/lib/client';
 import type { AdminAgency, Plan } from '@/lib/types';
+import { initials } from './Brand';
+import { Icon } from './Icon';
+import { PageHead } from './Shell';
 
 export function AdminPanel({ agencies, plans }: { agencies: AdminAgency[]; plans: Plan[] }) {
   const router = useRouter();
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? agencies.filter((a) => a.name.toLowerCase().includes(q) || a.workspaceUrl.toLowerCase().includes(q)) : agencies;
+  }, [agencies, query]);
+
+  const active = agencies.filter((a) => a.status === 'active').length;
+  const clients = agencies.reduce((sum, a) => sum + a.clientCount, 0);
+  const users = agencies.reduce((sum, a) => sum + a.userCount, 0);
 
   async function update(id: string, body: { planKey?: string; status?: 'active' | 'suspended' }) {
     setError('');
@@ -21,16 +34,39 @@ export function AdminPanel({ agencies, plans }: { agencies: AdminAgency[]; plans
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Agencies</h1>
-          <p className="muted small">{agencies.length} {agencies.length === 1 ? 'workspace' : 'workspaces'}</p>
+      <PageHead crumbs="Platform / Agencies" title="Agencies" sub="Every workspace on the platform, with its plan and status.">
+        <div className="search">
+          <Icon name="search" />
+          <label className="sr-only" htmlFor="agency-search">Search agencies</label>
+          <input id="agency-search" type="search" placeholder="Search agencies" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      </PageHead>
+
+      <div className="grid-3">
+        <div className="card stat">
+          <span className="label">Active agencies</span>
+          <strong>{active}</strong>
+          <p className="muted">{agencies.length - active} suspended</p>
+        </div>
+        <div className="card stat">
+          <span className="label">Clients managed</span>
+          <strong>{clients}</strong>
+          <p className="muted">Across all workspaces</p>
+        </div>
+        <div className="card stat">
+          <span className="label">People with a login</span>
+          <strong>{users}</strong>
+          <p className="muted">Agency staff and client viewers</p>
         </div>
       </div>
+
       {error && <p className="error" role="alert">{error}</p>}
-      <div className="card" style={{ padding: 0 }}>
+
+      <div className="card flush">
         {agencies.length === 0 ? (
-          <p className="empty">No agencies have signed up yet.</p>
+          <p className="empty"><strong>No agencies yet</strong>Workspaces appear here as soon as an agency signs up.</p>
+        ) : shown.length === 0 ? (
+          <p className="empty">No agency matches “{query}”.</p>
         ) : (
           <table>
             <thead>
@@ -40,16 +76,21 @@ export function AdminPanel({ agencies, plans }: { agencies: AdminAgency[]; plans
                 <th>Users</th>
                 <th>Plan</th>
                 <th>Status</th>
-                <th />
+                <th><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
-              {agencies.map((agency) => (
+              {shown.map((agency) => (
                 <tr key={agency.id}>
                   <td>
-                    <strong>{agency.name}</strong>
-                    <div className="small">
-                      <a href={agency.workspaceUrl} target="_blank" rel="noreferrer">{agency.workspaceUrl.replace(/^https?:\/\//, '')}</a>
+                    <div className="who-cell">
+                      <span className="avatar sm neutral" aria-hidden="true">{initials(agency.name)}</span>
+                      <div>
+                        <strong>{agency.name}</strong>
+                        <span>
+                          <a href={agency.workspaceUrl} target="_blank" rel="noreferrer">{agency.workspaceUrl.replace(/^https?:\/\//, '')}</a>
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td>{agency.clientCount}</td>
@@ -59,10 +100,10 @@ export function AdminPanel({ agencies, plans }: { agencies: AdminAgency[]; plans
                       aria-label={`Plan for ${agency.name}`}
                       value={agency.planKey}
                       onChange={(e) => update(agency.id, { planKey: e.target.value })}
-                      style={{ width: 140 }}
+                      style={{ width: 190, height: 38 }}
                     >
                       {plans.map((plan) => (
-                        <option key={plan.key} value={plan.key}>{plan.name} ({plan.clientLimit})</option>
+                        <option key={plan.key} value={plan.key}>{plan.name} · {plan.clientLimit} clients</option>
                       ))}
                     </select>
                   </td>

@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable ${name}`);
@@ -18,10 +20,16 @@ export const config = {
   internalProxySecret: process.env.INTERNAL_PROXY_SECRET ?? '',
   rateLimitAuthPerMinute: Number(process.env.RATE_LIMIT_AUTH_PER_MINUTE ?? 20),
   platformDomain,
-  platformName: process.env.PLATFORM_NAME ?? 'GEO Platform',
+  platformName: process.env.PLATFORM_NAME ?? 'FunnelGeo',
   cnameTarget: (process.env.CNAME_TARGET ?? `domains.${platformDomain}`).toLowerCase(),
   publicScheme: process.env.PUBLIC_SCHEME ?? 'http',
   publicPort: process.env.PUBLIC_PORT ?? '',
+  /** SMTP connection URL, e.g. smtps://user:pass@smtp.example.com:465. Unset: emails are logged, not sent. */
+  smtpUrl: process.env.SMTP_URL ?? '',
+  /** Address every email is sent from. The display name is the agency's. */
+  mailFrom: process.env.MAIL_FROM ?? `no-reply@${platformDomain}`,
+  /** Where uploaded logos and favicons are stored. */
+  uploadDir: path.resolve(process.env.UPLOAD_DIR ?? 'data/uploads'),
   secureCookies: process.env.NODE_ENV === 'production',
   isTest: process.env.NODE_ENV === 'test',
 };
