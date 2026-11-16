@@ -16,11 +16,12 @@ interface Props {
   teamCount: number;
   viewerCount: number;
   pendingInvites: number;
+  credits: { allowance: number; remaining: number } | null;
 }
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
-export function OverviewPanel({ firstName, initial, canEdit, isOwner, agency, teamCount, viewerCount, pendingInvites }: Props) {
+export function OverviewPanel({ firstName, initial, canEdit, isOwner, agency, teamCount, viewerCount, pendingInvites, credits }: Props) {
   const [clients, setClients] = useState(initial);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
@@ -103,12 +104,12 @@ export function OverviewPanel({ firstName, initial, canEdit, isOwner, agency, te
                       <div className="who-cell">
                         <span className="avatar sm" aria-hidden="true">{initials(client.name)}</span>
                         <div>
-                          <strong>{client.name}</strong>
+                          <strong><a className="row-link" href={`/clients/${client.id}`}>{client.name}</a></strong>
                           <span>{client.domain ?? 'No website on file'}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="actions"><span className="pill">Results and reports will appear here</span></td>
+                    <td className="actions"><a className="button secondary sm" href={`/clients/${client.id}`}>View results</a></td>
                   </tr>
                 ))}
               </tbody>
@@ -178,9 +179,9 @@ export function OverviewPanel({ firstName, initial, canEdit, isOwner, agency, te
               <span className="muted">Can view their own dashboard</span>
             </div>
             <div>
-              <span className="label">Workspace address</span>
-              <strong className="address">{agency?.domainStatus === 'verified' ? agency.customDomain : agency?.defaultHost}</strong>
-              <span className="muted">{agency?.domainStatus === 'verified' ? 'Your own domain' : 'Default address'}</span>
+              <span className="label">Credits left this month</span>
+              <strong>{credits ? credits.remaining.toLocaleString() : '0'}</strong>
+              <span className="muted">of {credits ? credits.allowance.toLocaleString() : '0'} on your plan</span>
             </div>
           </div>
         </section>
@@ -254,7 +255,7 @@ export function OverviewPanel({ firstName, initial, canEdit, isOwner, agency, te
                     <div className="who-cell">
                       <span className="avatar sm" aria-hidden="true">{initials(client.name)}</span>
                       <div>
-                        <strong>{client.name}</strong>
+                        <strong><a className="row-link" href={`/clients/${client.id}`}>{client.name}</a></strong>
                         <span>{client.domain ?? 'No website on file'}</span>
                       </div>
                     </div>

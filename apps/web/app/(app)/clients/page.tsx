@@ -7,10 +7,11 @@ export default async function OverviewPage() {
   if (!session) return null; // the layout redirects
   const { role, name } = session.user;
   const isStaff = role !== 'client_viewer';
-  const [clients, agency, team] = await Promise.all([
+  const [clients, agency, team, credits] = await Promise.all([
     apiGet<{ clients: Client[] }>('/v1/clients'),
     isStaff ? apiGet<{ agency: Agency }>('/v1/agency') : null,
     isStaff ? apiGet<{ users: TeamUser[]; invites: TeamInvite[] }>('/v1/team') : null,
+    isStaff ? apiGet<{ allowance: number; remaining: number }>('/v1/credits') : null,
   ]);
   return (
     <OverviewPanel
@@ -22,6 +23,7 @@ export default async function OverviewPage() {
       teamCount={team?.users.filter((u) => u.role !== 'client_viewer').length ?? 0}
       viewerCount={team?.users.filter((u) => u.role === 'client_viewer').length ?? 0}
       pendingInvites={team?.invites.length ?? 0}
+      credits={credits}
     />
   );
 }

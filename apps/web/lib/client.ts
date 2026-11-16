@@ -19,3 +19,11 @@ export async function uploadImage<T = any>(path: string, file: File): Promise<T>
   if (!res.ok) throw new Error(json?.error?.message ?? 'The upload failed. Try again.');
   return json as T;
 }
+
+/** Browser-side read through the /api proxy. */
+export async function load<T = any>(path: string): Promise<T> {
+  const res = await fetch(`/api${path}`, { cache: 'no-store' });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error?.message ?? 'Something went wrong. Try again.');
+  return json as T;
+}

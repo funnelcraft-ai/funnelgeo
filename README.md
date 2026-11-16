@@ -19,11 +19,36 @@ from the PRD.
 - Clients, with the plan's active-client limit
 - Super admin: list agencies, change plan, suspend and reactivate
 
+**Milestone 3, Tracker** (complete, tested against stand-in engines):
+
+- Prompts per client (bulk add, priority, type, pause, plan limit) and up to
+  five competitors, each with other names and a website
+- Runs: every active prompt, on every available engine, the plan's number of
+  times; started by hand or on a weekly schedule
+- Engine adapters for ChatGPT, Perplexity and Gemini, a queue per engine with
+  its own rate limit, retries with backoff, and a worker process
+- Each answer is stored in full with its sources; mentions, position and
+  citations are derived from it and can be rebuilt ("Re-read answers")
+- Visibility screens: counts with sample sizes by engine, share of voice,
+  prompt by prompt with the stored answers, most cited sources, run by run
+- Credits: the cost of a run is reserved before it starts and failed calls are
+  refunded; the ledger is append-only
+
+Not in this milestone, though the PRD lists them under the tracker:
+
+- **Sentiment and indirect references.** Mentions are matched by name, other
+  names and website only. Both of these need a language-model pass.
+- **Google AI Overviews**, and sending a prompt's country to the engines.
+- **Screens for credit settings.** Engine costs, plan allowances and grants are
+  set through the super admin API (see `src/routes/admin.ts`).
+
+The weekly schedule is off until someone turns it on for a client, so a new
+client never spends credits unasked. The PRD said weekly by default.
+
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
-Not built yet: tracker, prospect audit, diagnosis, action queue, proof,
-reports, credits.
+Not built yet: prospect audit, diagnosis, action queue, proof, reports.
 
 ## Layout
 
@@ -36,8 +61,8 @@ infra/      Example reverse-proxy config for custom domains.
 
 ## Run it locally
 
-Needs Node 22.9+ and Postgres 16 (the version tested; `docker compose up -d`
-starts one).
+Needs Node 22.9+, Postgres 16 and Redis 7 (the versions tested;
+`docker compose up -d` starts both).
 
 ```bash
 cp .env.example .env          # then set SESSION_SECRET and INTERNAL_PROXY_SECRET
@@ -46,6 +71,7 @@ npm run migrate               # creates tables, policies and the geo_app login
 npm run seed:admin            # optional: set SUPER_ADMIN_* in .env first
 npm run dev:api               # terminal 1, port 4000
 npm run dev:web               # terminal 2, port 3000
+npm run dev:worker            # terminal 3: makes engine calls, runs schedules
 ```
 
 - Platform address: http://localhost:3000 (signup, super admin sign-in)
@@ -67,14 +93,15 @@ CREATE DATABASE geo_test OWNER geo_owner;   -- for npm test
 ## Tests
 
 ```bash
-npm test          # 27 integration tests against the geo_test database
+npm test          # 49 integration tests; needs Postgres (geo_test) and Redis
 npm run typecheck
 npm run build
 ```
 
 The tests wipe and rebuild `geo_test` on every run. They cover tenant
 isolation at the API and directly at the database, roles, whitelabel, plan
-limits, suspension, emails, password reset and uploads.
+limits, suspension, emails, password reset, uploads, and the tracker: a
+25-prompt run end to end, parsing, retries, refunds, schedules and credits.
 
 ## How tenant isolation works
 
@@ -95,6 +122,35 @@ limits, suspension, emails, password reset and uploads.
 
 When you add a tenant table: add `agency_id`, enable row-level security, add
 policies in the same migration, and add a case to the isolation test.
+
+## Answer engines
+
+Set `ENGINE_MODE=live` and, for each engine you want, its API key and model
+(`OPENAI_*`, `PERPLEXITY_*`, `GEMINI_*`). An engine with either missing is
+simply not used. The three request formats were checked against the
+providers' documentation on 16 Nov 2026 but have not been run against the live
+services; run `spike/cost-spike.mjs` with your keys first, since it uses the
+same formats.
+
+`ENGINE_MODE=mock` answers every call with generated stand-in text so the
+whole product can be tried without keys. Runs made this way are labelled
+"demo data" everywhere, and the API refuses to start in this mode when
+`NODE_ENV=production`. Brand names are never sent to a live engine: it sees
+the prompt and nothing else.
+
+## Credits
+
+One credit per engine call by default (`engines.credit_cost`). A plan's
+`monthly_credits` is the allowance for a calendar month (UTC); the balance is
+that allowance plus the month's ledger entries. The current allowances are
+provisional: enough for every client on the plan to run weekly. Set real
+values after the cost spike:
+
+```
+PATCH /v1/admin/engines/:key      { "creditCost": 2 }
+PATCH /v1/admin/plans/:key        { "monthlyCredits": 8000 }
+POST  /v1/admin/agencies/:id/credits { "amount": 1000, "note": "..." }
+```
 
 ## Whitelabel rules
 
@@ -122,6 +178,8 @@ storage first; `src/routes/files.ts` is the only file that touches the disk.
 
 ## Deploying
 
+- Run three processes: the API (`npm start -w @geo/api`), at least one worker
+  (`npm run start:worker -w @geo/api`) and the web app, plus Postgres and Redis.
 - Run the API on a private address. It trusts the forwarded hostname only from
   callers that send `INTERNAL_PROXY_SECRET`; the web app sends it.
 - Put a reverse proxy in front of the web app that preserves the `Host`

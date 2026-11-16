@@ -95,3 +95,75 @@ export const ROLE_LABEL: Record<Role, string> = {
   agency_member: 'Team member',
   client_viewer: 'Client viewer',
 };
+
+// Tracker --------------------------------------------------------------------
+
+export type Intent = 'category' | 'comparison' | 'problem' | 'brand';
+export const INTENT_LABEL: Record<Intent, string> = { category: 'Category', comparison: 'Comparison', problem: 'Problem', brand: 'Brand' };
+
+export interface Prompt {
+  id: string;
+  text: string;
+  intent: Intent;
+  priority: boolean;
+  persona: string | null;
+  active: boolean;
+}
+
+export interface Competitor {
+  id: string;
+  name: string;
+  domain: string | null;
+  aliases: string[];
+}
+
+export interface Run {
+  id: string;
+  trigger: 'manual' | 'scheduled' | 'audit';
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'skipped';
+  engineMode: 'live' | 'mock';
+  engineKeys: string[];
+  samples: number;
+  promptCount: number;
+  totalCalls: number;
+  okCalls: number;
+  failedCalls: number;
+  credits: number;
+  note: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+export interface Tracker {
+  client: { id: string; name: string; domain: string | null; brandAliases: string[]; status: string; schedule: 'off' | 'weekly'; nextRunAt: string | null };
+  competitors: Competitor[];
+  prompts: Prompt[];
+  runs: Run[];
+  engineMode: 'live' | 'mock';
+  trend: { runId: string; finishedAt: string; engineMode: string; answers: number; mentioned: number }[];
+  // Agency staff only:
+  engines?: { key: string; label: string; creditCost: number; available: boolean }[];
+  limits?: { prompts: number; competitors: number; samples: number };
+  estimate?: { callsPerRun: number; creditsPerRun: number; creditsPerMonth: number };
+  credits?: { allowance: number; remaining: number };
+}
+
+export interface Visibility {
+  totals: { answers: number; mentioned: number; cited: number; failed: number; pending: number };
+  engines: { key: string; label: string; answers: number; failed: number; mentioned: number; cited: number }[];
+  brands: { id: string | null; name: string; isClient: boolean; mentions: number; avgPosition: number | null }[];
+  prompts: { id: string; text: string; intent: Intent; priority: boolean; answers: number; mentioned: number; engines: Record<string, { answers: number; mentioned: number }> }[];
+  domains: { domain: string; answers: number; isClient: boolean; competitor: string | null }[];
+}
+
+export interface Answer {
+  id: string;
+  engineKey: string;
+  engineLabel: string;
+  sampleNo: number;
+  status: 'pending' | 'ok' | 'failed';
+  text: string | null;
+  error: string | null;
+  mentions: { name: string; isClient: boolean; position: number }[];
+  citations: { url: string; domain: string; isClient: boolean }[];
+}

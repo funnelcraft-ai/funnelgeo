@@ -11,6 +11,9 @@ const PATHS = {
   mail: 'M4 6h16v12H4zM4 7l8 6 8-6',
   globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.500 5.6 12 3',
   arrow: 'M5 12h14M13 6l6 6-6 6',
+  play: 'M8 5.5v13l10.5-6.5z',
+  refresh: 'M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4.5H15',
+  chevron: 'M9 6l6 6-6 6',
 } as const;
 
 export type IconName = keyof typeof PATHS;

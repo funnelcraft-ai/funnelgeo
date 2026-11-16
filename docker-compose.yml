@@ -12,5 +12,10 @@ services:
       - geo_pg:/var/lib/postgresql/data
       - ./infra/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
 
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6379:6379"
+
 volumes:
   geo_pg:

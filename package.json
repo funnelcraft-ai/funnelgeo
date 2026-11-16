@@ -7,6 +7,7 @@
     "seed:admin": "npm run seed:admin -w @geo/api",
     "dev:api": "npm run dev -w @geo/api",
     "dev:web": "npm run dev -w @geo/web",
+    "dev:worker": "npm run worker -w @geo/api",
     "build": "npm run build -w @geo/api && npm run build -w @geo/web",
     "test": "npm run test -w @geo/api",
     "typecheck": "npm run typecheck -w @geo/api && npm run typecheck -w @geo/web"
