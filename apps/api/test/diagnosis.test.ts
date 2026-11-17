@@ -291,9 +291,16 @@ describe('diagnosis of a run', () => {
     assert.equal(json.diagnosis.site.status, 'done');
     assert.equal(json.diagnosis.site.findings.domain, 'bluelotus.example');
 
+    // One check at a time: a check still running blocks another.
+    const { rows: held } = await ownerPool.query(
+      `INSERT INTO site_audits (agency_id, client_id, domain, mode) VALUES ($1, $2, 'bluelotus.example', 'live') RETURNING id`,
+      [owner.agencyId, clientId],
+    );
+    assert.equal((await call('POST', `/v1/clients/${clientId}/site-check`, owner)).status, 409);
+    await ownerPool.query(`DELETE FROM site_audits WHERE id = $1`, [held[0].id]);
+
     const again = await call('POST', `/v1/clients/${clientId}/site-check`, owner);
     assert.equal(again.status, 202);
-    assert.equal((await call('POST', `/v1/clients/${clientId}/site-check`, owner)).status, 409, 'one check at a time');
     const deadline = Date.now() + 20_000;
     while ((await call('GET', `/v1/site-checks/${again.json.siteCheck.id}`, owner)).json.siteCheck.status === 'pending') {
       assert.ok(Date.now() < deadline);

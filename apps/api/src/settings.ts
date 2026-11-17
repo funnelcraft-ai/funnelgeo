@@ -11,7 +11,7 @@ import { ownerPool } from './db.js';
  * restart.
  */
 
-export type SettingGroup = 'chatgpt' | 'perplexity' | 'gemini' | 'email';
+export type SettingGroup = 'chatgpt' | 'perplexity' | 'gemini' | 'writer' | 'email';
 
 export interface SettingSpec {
   key: string;
@@ -20,6 +20,8 @@ export interface SettingSpec {
   secret: boolean;
   help: string;
   placeholder?: string;
+  /** Fixed choices, shown as a list instead of a text box. */
+  choices?: { value: string; label: string }[];
   validate: (value: string) => string | null;
 }
 
@@ -33,6 +35,21 @@ export const SETTINGS: SettingSpec[] = [
   { key: 'PERPLEXITY_MODEL', group: 'perplexity', label: 'Model', secret: false, help: 'A Sonar model name from Perplexity’s API documentation.', validate: model },
   { key: 'GEMINI_API_KEY', group: 'gemini', label: 'API key', secret: true, help: 'From Google AI Studio.', validate: apiKey },
   { key: 'GEMINI_MODEL', group: 'gemini', label: 'Model', secret: false, help: 'A Gemini model that supports grounding with Google Search.', validate: model },
+  {
+    key: 'WRITER_PROVIDER',
+    group: 'writer',
+    label: 'Provider',
+    secret: false,
+    help: 'Which company’s model writes briefs, drafts, FAQs and emails. OpenAI is used when nothing is chosen.',
+    choices: [
+      { value: 'openai', label: 'OpenAI (uses the ChatGPT key above)' },
+      { value: 'anthropic', label: 'Claude (Anthropic)' },
+      { value: 'gemini', label: 'Gemini (uses the Gemini key above)' },
+    ],
+    validate: (v) => (['openai', 'anthropic', 'gemini'].includes(v) ? null : 'Choose OpenAI, Claude or Gemini.'),
+  },
+  { key: 'WRITER_MODEL', group: 'writer', label: 'Writing model', secret: false, help: 'Optional for OpenAI and Gemini: without it, the engine model above is used. Required for Claude.', validate: model },
+  { key: 'ANTHROPIC_API_KEY', group: 'writer', label: 'Claude API key', secret: true, help: 'Only needed when Claude is the provider. From the Anthropic Console.', validate: apiKey },
   {
     key: 'SMTP_URL',
     group: 'email',

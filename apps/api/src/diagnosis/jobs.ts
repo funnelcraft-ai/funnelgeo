@@ -8,6 +8,7 @@ import type { Mailer } from '../mailer.js';
 import type { Agency } from '../tenant.js';
 import { firstIndex } from '../tracker/parse.js';
 import { diagnosisFor } from './diagnose.js';
+import { refreshActions } from '../actions/rules.js';
 import { classifySource, type ThirdPartyType } from './sources.js';
 
 /** Most pages opened after one run. Checked pages are reused for 14 days, so later runs add few. */
@@ -170,12 +171,15 @@ export async function runDiagnosis(deps: DiagnosisDeps, runId: string, agencyId:
         ),
       );
     });
-    await withTenant(ctx, (db) =>
-      db.query(`UPDATE diagnoses SET status = 'done', pages_checked = $2, finished_at = now() WHERE run_id = $1 AND status = 'pending'`, [runId, checked]),
-    );
+    // 3. Suggested actions, from the latest run only: an older run's diagnosis must not undo a newer one's.
+    await withTenant(ctx, async (db) => {
+      const { rows: latest } = await db.query(`SELECT id FROM runs WHERE client_id = $1 AND status = 'completed' ORDER BY finished_at DESC LIMIT 1`, [clientId]);
+      if (latest[0]?.id === runId && head.client_status !== 'prospect') await refreshActions(db, clientId, runId, await diagnosisFor(db, clientId, runId));
+      await db.query(`UPDATE diagnoses SET status = 'done', pages_checked = $2, finished_at = now() WHERE run_id = $1 AND status = 'pending'`, [runId, checked]);
+    });
   }
 
-  // 3. The summary email, once.
+  // 4. The summary email, once.
   if (!head.emailed_at && head.client_status !== 'prospect') await sendRunSummary(deps.mailer, runId, agencyId, clientId);
 }
 
@@ -222,6 +226,13 @@ async function sendRunSummary(mailer: Mailer, runId: string, agencyId: string, c
       newlyWon: prev ? now.prompts.filter((p) => p.status === 'won' && statusBefore.get(p.id) === 'lost').map((p) => p.text) : [],
       causes: now.prompts.filter((p) => p.cause).map((p) => ({ question: p.text, sentence: p.cause!.sentence })),
       gaps: { count: now.gaps.length, top: now.gaps.map((g) => g.domain) },
+      newActions: Number(
+        (await db.query(
+          `SELECT count(*) AS n FROM actions WHERE client_id = $1 AND last_run_id = $2 AND status = 'suggested'
+              AND created_at >= (SELECT created_at FROM diagnoses WHERE run_id = $2)`,
+          [clientId, runId],
+        )).rows[0].n,
+      ),
     };
   });
   if (!summary) return;

@@ -5,12 +5,15 @@ import { ENGINE_KEYS, type EngineSet } from './engines.js';
 import type { SiteFetcher } from './audits/fetch.js';
 import { completeAudit, processLead, runSiteAudit, type TaskQueue } from './audits/pipeline.js';
 import { runDiagnosis } from './diagnosis/jobs.js';
+import { runGeneration } from './actions/service.js';
+import { createWriter, type Writer } from './writer.js';
 import type { Mailer } from './mailer.js';
 import { processCall, type CallJob, type CallQueue } from './tracker/runs.js';
 
 const SITE_QUEUE = 'site-audits';
 const LEAD_QUEUE = 'leads';
 const DIAGNOSIS_QUEUE = 'diagnoses';
+const GENERATE_QUEUE = 'generate';
 interface TaskJob {
   id: string;
   agencyId: string;
@@ -70,6 +73,9 @@ export function createQueue(options: QueueOptions = {}): CallQueue & TaskQueue &
     async lead(id, agencyId) {
       await taskQueue(LEAD_QUEUE).add('lead', { id, agencyId } satisfies TaskJob, { jobId: id });
     },
+    async generate(assetId, agencyId) {
+      await taskQueue(GENERATE_QUEUE).add('generate', { id: assetId, agencyId } satisfies TaskJob, { jobId: assetId, attempts: 1 });
+    },
     async diagnose(runId, agencyId) {
       await taskQueue(DIAGNOSIS_QUEUE).add('diagnose', { id: runId, agencyId } satisfies TaskJob, { jobId: `diagnose-${runId}` });
     },
@@ -93,6 +99,8 @@ export interface AuditWorkerDeps {
   mailer: Mailer;
   queue: CallQueue & TaskQueue;
   siteMode: 'live' | 'mock';
+  /** Writes the action queue's assets; the configured writing model when not given. */
+  writer?: Writer;
 }
 
 export function startWorkers(
@@ -141,6 +149,8 @@ export function startWorkers(
       workers.push(worker);
     };
     taskWorker(SITE_QUEUE, (job) => runSiteAudit(audit.fetcher, job.id, job.agencyId, audit.mailer), 3);
+    const writer = audit.writer ?? createWriter();
+    taskWorker(GENERATE_QUEUE, (job) => runGeneration({ writer, fetcher: audit.fetcher }, job.id, job.agencyId), 3);
     taskWorker(DIAGNOSIS_QUEUE, (job) => runDiagnosis({ fetcher: audit.fetcher, mailer: audit.mailer, siteMode: audit.siteMode }, job.id, job.agencyId), 2);
     taskWorker(LEAD_QUEUE, (job) => processLead({ engines, queue: audit.queue, tasks: audit.queue, siteMode: audit.siteMode, mailer: audit.mailer }, job.id, job.agencyId), 2);
   }

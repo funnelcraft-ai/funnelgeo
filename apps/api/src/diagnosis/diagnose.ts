@@ -177,7 +177,7 @@ export async function diagnosisFor(db: Db, clientId: string, runId: string) {
       clientAnswers,
       leader: ranked[0] ? { name: competitorName(ranked[0][0]), answers: leadAnswers } : null,
       engines,
-      cause: null as null | { kind: CauseKind; sentence: string; sources: DiagnosisSource[]; note: string | null },
+      cause: null as null | { kind: CauseKind; sentence: string; sources: DiagnosisSource[]; note: string | null; bots?: string[]; blockedEngines?: string[] },
     };
     if (status !== 'lost') return base;
     base.cause = causeFor({ mine, ranked, engines });
@@ -226,6 +226,8 @@ export async function diagnosisFor(db: Db, clientId: string, runId: string) {
         sentence: `${C}’s robots.txt blocks ${joinAll(bots)}, so ${joinAll(blockedOn.map((e) => e.label))} can’t read its site; ${who} ${verb} named instead.`,
         sources: [robots, ...thirdParty, ...competitorPages].slice(0, MAX_SOURCES),
         note: null,
+        bots,
+        blockedEngines: blockedOn.map((e) => e.label),
       };
     }
 

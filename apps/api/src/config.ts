@@ -62,6 +62,8 @@ export const config = {
   /** Attempts per call before it is recorded as failed (and refunded). */
   engineAttempts: Number(process.env.ENGINE_ATTEMPTS ?? 3),
   workerConcurrency: Number(process.env.WORKER_CONCURRENCY ?? 4),
+  /** Address of the Anthropic API, used when Claude is the writing model. Tests point it at a stand-in. */
+  anthropicBaseUrl: process.env.WRITER_ANTHROPIC_URL ?? 'https://api.anthropic.com',
   engines: {
     chatgpt: { baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com' },
     perplexity: { baseUrl: process.env.PERPLEXITY_BASE_URL ?? 'https://api.perplexity.ai' },

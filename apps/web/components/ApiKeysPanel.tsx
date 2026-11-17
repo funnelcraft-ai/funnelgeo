@@ -6,6 +6,9 @@ import type { PlatformSetting, PlatformSettingGroup, PlatformSettings, SettingTe
 import { Icon } from './Icon';
 import { PageHead } from './Shell';
 
+/** Settings that have a sensible default, so leaving them empty is not a problem. */
+const OPTIONAL = new Set(['WRITER_PROVIDER', 'WRITER_MODEL', 'ANTHROPIC_API_KEY', 'MAIL_FROM']);
+
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 export function ApiKeysPanel({ initial }: { initial: PlatformSettings }) {
@@ -44,7 +47,10 @@ export function ApiKeysPanel({ initial }: { initial: PlatformSettings }) {
 }
 
 function groupStatus(group: PlatformSettingGroup): { label: string; tone: 'ok' | 'warn' | 'bad' } {
-  const missing = group.items.filter((i) => i.source === 'none' && (group.key !== 'email' || i.key === 'SMTP_URL'));
+  // Optional settings don't count as missing: the email sender and, for writing, everything but what the chosen provider needs.
+  const optional = (i: PlatformSetting) => (group.key === 'email' && i.key !== 'SMTP_URL') || group.key === 'writer';
+  const missing = group.items.filter((i) => i.source === 'none' && !optional(i));
+  if (group.key === 'writer') return { label: 'Uses the defaults unless changed', tone: 'ok' };
   if (group.items.some((i) => i.unreadable && i.source === 'none')) return { label: 'Enter the key again', tone: 'bad' };
   if (missing.length === 0) return { label: 'Set up', tone: 'ok' };
   if (missing.length === group.items.length || group.key === 'email') return { label: 'Not set up', tone: 'warn' };
@@ -84,7 +90,7 @@ function GroupCard({ group, canSaveSecrets, onSaved }: { group: PlatformSettingG
       <div className="key-test">
         <button type="button" className="secondary sm" onClick={runTest} disabled={test.busy}>
           <Icon name={isEmail ? 'mail' : 'play'} />
-          {test.busy ? (isEmail ? 'Sending…' : 'Asking…') : isEmail ? 'Send a test email' : 'Test connection'}
+          {test.busy ? (isEmail ? 'Sending…' : 'Asking…') : isEmail ? 'Send a test email' : group.key === 'writer' ? 'Test writing' : 'Test connection'}
         </button>
         <p className="hint">
           {isEmail ? 'Sends one email to your own address.' : 'Asks one short question with the key and model in use. Costs a fraction of a cent.'}
@@ -101,7 +107,9 @@ function GroupCard({ group, canSaveSecrets, onSaved }: { group: PlatformSettingG
   );
 }
 
-function describe(item: PlatformSetting): string {
+function describe(raw: PlatformSetting): string {
+  // Show a choice by its label, not its stored value.
+  const item = raw.choices ? { ...raw, shown: raw.choices.find((c) => c.value === raw.shown)?.label ?? raw.shown } : raw;
   if (item.source === 'saved') {
     const value = item.secret ? `Saved, ending in ${item.shown}` : `Saved: ${item.shown}`;
     return `${value}. Updated ${when(item.updatedAt!)}${item.updatedBy ? ` by ${item.updatedBy}` : ''}.`;
@@ -143,6 +151,14 @@ function SettingRow({ item, disabled, onSaved }: { item: PlatformSetting; disabl
           <label htmlFor={id}>
             {item.label} <code className="env-name">{item.key}</code>
           </label>
+          {item.choices ? (
+            <select id={id} value={value || (item.source !== 'none' ? item.shown ?? '' : '')} onChange={(e) => setValue(e.target.value)} disabled={disabled}>
+              {item.source === 'none' && <option value="">Choose…</option>}
+              {item.choices.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          ) : (
           <input
             id={id}
             type={item.secret ? 'password' : 'text'}
@@ -154,6 +170,7 @@ function SettingRow({ item, disabled, onSaved }: { item: PlatformSetting; disabl
             disabled={disabled}
             required
           />
+          )}
         </div>
         <button disabled={disabled || state.busy || value.trim() === ''}>Save</button>
         {item.source === 'saved' && (
@@ -162,7 +179,7 @@ function SettingRow({ item, disabled, onSaved }: { item: PlatformSetting; disabl
           </button>
         )}
       </div>
-      <p className={`hint ${item.source === 'none' ? 'missing' : ''}`}>
+      <p className={`hint ${item.source === 'none' && !OPTIONAL.has(item.key) ? 'missing' : ''}`}>
         {item.source !== 'none' && <Icon name="check" />} {describe(item)} {item.help}
       </p>
       {state.error && <p className="error" role="alert">{state.error}</p>}

@@ -48,7 +48,7 @@ export const presentRun = (row: any) => ({
 
 export async function clientOr404(db: Db, clientId: string) {
   const { rows } = await db.query(
-    `SELECT id, name, domain, brand_aliases, status, schedule, next_run_at FROM clients WHERE id = $1`,
+    `SELECT id, name, domain, brand_aliases, status, schedule, next_run_at, voice FROM clients WHERE id = $1`,
     [clientId],
   );
   if (!rows[0]) throw notFound('Client not found');
@@ -79,7 +79,7 @@ export async function trackerRoutes(app: FastifyInstance, deps: TrackerDeps): Pr
       const { rows: runs } = await db.query(`SELECT * FROM runs WHERE client_id = $1 ORDER BY created_at DESC LIMIT 12`, [id]);
       const engines = await engineList(db);
       const base = {
-        client: { id: client.id, name: client.name, domain: client.domain, brandAliases: client.brand_aliases, status: client.status, schedule: client.schedule, nextRunAt: client.next_run_at },
+        client: { id: client.id, name: client.name, domain: client.domain, brandAliases: client.brand_aliases, status: client.status, schedule: client.schedule, nextRunAt: client.next_run_at, voice: client.voice ?? null },
         competitors: competitors.map(presentCompetitor),
         prompts: prompts.map(presentPrompt),
         runs: runs.map(presentRun),

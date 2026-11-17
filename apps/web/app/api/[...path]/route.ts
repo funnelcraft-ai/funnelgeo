@@ -49,7 +49,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   }
 
   const out = new Headers({ 'content-type': upstream.headers.get('content-type') ?? 'application/json' });
-  for (const name of ['cache-control', 'x-content-type-options', 'content-security-policy']) {
+  for (const name of ['cache-control', 'x-content-type-options', 'content-security-policy', 'content-disposition']) {
     const value = upstream.headers.get(name);
     if (value) out.set(name, value);
   }

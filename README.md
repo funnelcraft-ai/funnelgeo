@@ -110,6 +110,40 @@ A Diagnosis tab on each client, for agency staff only:
 Not in this milestone: sentiment, page-level answer-structure scoring (phase
 2) and the action queue the causes will feed (milestone 6).
 
+**Milestone 6, Action queue** (complete, tested against its exit check: a
+member takes one lost question from suggestion to an exported asset and marks
+it done). An Actions tab on each client, for agency staff only:
+
+- Suggestions come from each run's diagnosis, by rules (no model decides what
+  to do): a blocked crawler becomes a robots.txt fix; a third-party page that
+  doesn't list the client becomes outreach, a listing or a reviews action by
+  its type; a question with nothing of the client's to cite becomes a new
+  page; the client's page cited without the client named becomes a content
+  update; those questions also feed one FAQ action; failing website checks
+  become llms.txt and readability fixes
+- One open action per problem: later runs update it (questions, impact)
+  instead of adding another. Dismissed actions return after 90 days at the
+  earliest; done ones after 28 days, so the change after them can be measured.
+  Untouched suggestions a later run no longer supports close as "resolved"
+- Impact = lost questions addressed, priority questions counting double
+  (site-wide fixes show "Whole site"). Effort S, M or L. Statuses: suggested,
+  approved, in progress, done, dismissed. An owner from the team
+- Generators: content brief, draft in the client's voice (Brands tab), FAQ
+  with FAQPage JSON-LD, llms.txt from the sitemap, robots.txt fix from the live
+  file, outreach email, listing copy, review request email. The model is told
+  never to invent facts and to leave [ADD: …] placeholders; the editor counts
+  what's left. Every edit is a new version; files download, never display
+- Credits: brief 2, draft 4, FAQ 2, emails and listing 1; robots.txt and
+  llms.txt are built by rules and free. Reserved up front, refunded if writing
+  fails. Provisional until the cost spike
+- Writing model: OpenAI by default, reusing the ChatGPT key and model; Claude
+  or Gemini on the API keys screen ("Writing model", with a Test button)
+- Done takes the live URL or a note; its date starts milestone 7's before and
+  after comparison
+
+Not in this milestone: client approval of actions, task due dates (both
+phase 2) and publishing to a CMS (phase 3).
+
 **Platform API keys** (super admin): one screen for the engine keys and
 models and the email server, with a Test button for each. See
 [API keys screen](#api-keys-screen).
@@ -117,7 +151,7 @@ models and the email server, with a Test button for each. See
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
-Not built yet: action queue, proof, reports, plans and billing.
+Not built yet: proof (milestone 7), reports (8), plans and billing (9).
 
 ## Layout
 

@@ -2,6 +2,7 @@ import { withSystem } from './db.js';
 import { HttpError } from './http.js';
 import { closeStuckSiteAudits, completeAudit, type TaskQueue } from './audits/pipeline.js';
 import { stuckDiagnoses } from './diagnosis/jobs.js';
+import { closeStuckAssets } from './actions/service.js';
 import type { Mailer } from './mailer.js';
 import { createRun, settleRun, type TrackerDeps } from './tracker/runs.js';
 
@@ -89,6 +90,7 @@ export function startScheduler(deps: TrackerDeps & { mailer?: Mailer; tasks?: Ta
       // Diagnosis jobs lost on the way (Redis restarted, enqueue failed) are queued again.
       if (deps.tasks) for (const d of await stuckDiagnoses()) await deps.tasks.diagnose(d.run_id, d.agency_id);
       await closeStuckSiteAudits(deps.mailer);
+      await closeStuckAssets();
     } catch (err) {
       onError(err);
     } finally {

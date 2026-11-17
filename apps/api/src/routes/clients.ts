@@ -23,12 +23,14 @@ const createSchema = z
     language: z.string().trim().toLowerCase().regex(/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/).optional(),
     country: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, 'Use a two-letter country code').nullable().optional(),
     status: z.enum(['active', 'paused']).optional(),
+    /** How the client writes, for the draft generators. */
+    voice: optionalText(4000).nullable().optional(),
   })
   .strict();
 
 const updateSchema = createSchema.partial();
 
-const COLUMNS = 'id, name, domain, brand_aliases, vertical, language, country, status, created_at, updated_at';
+const COLUMNS = 'id, name, domain, brand_aliases, vertical, language, country, status, voice, created_at, updated_at';
 
 function present(row: any) {
   return {
@@ -40,6 +42,7 @@ function present(row: any) {
     language: row.language,
     country: row.country,
     status: row.status,
+    voice: row.voice ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -83,8 +86,8 @@ export async function clientRoutes(app: FastifyInstance): Promise<void> {
         );
       }
       const { rows } = await db.query(
-        `INSERT INTO clients (agency_id, name, domain, brand_aliases, vertical, language, country, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING ${COLUMNS}`,
+        `INSERT INTO clients (agency_id, name, domain, brand_aliases, vertical, language, country, status, voice)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING ${COLUMNS}`,
         [
           ctx.agencyId,
           body.name,
@@ -94,6 +97,7 @@ export async function clientRoutes(app: FastifyInstance): Promise<void> {
           body.language ?? 'en',
           body.country ?? null,
           body.status ?? 'active',
+          body.voice ?? null,
         ],
       );
       return rows[0];
@@ -113,6 +117,7 @@ export async function clientRoutes(app: FastifyInstance): Promise<void> {
     if (body.language !== undefined) columns.language = body.language;
     if (body.country !== undefined) columns.country = body.country;
     if (body.status !== undefined) columns.status = body.status;
+    if (body.voice !== undefined) columns.voice = body.voice;
     const names = Object.keys(columns);
     if (names.length === 0) throw new HttpError(400, 'invalid_input', 'Nothing to update');
 

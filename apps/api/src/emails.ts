@@ -178,6 +178,7 @@ export interface RunSummary {
   newlyWon: string[];
   causes: { question: string; sentence: string }[];
   gaps: { count: number; top: string[] };
+  newActions: number;
 }
 
 const quoted = (items: string[], max = 3) =>
@@ -208,6 +209,7 @@ export function runSummaryEmail(brand: Brand, input: RunSummary & { to: string; 
       `${input.gaps.count} ${input.gaps.count === 1 ? 'site cites' : 'sites cite'} competitors in answers where ${input.client} is missing, led by ${input.gaps.top.slice(0, 3).join(', ')}.`,
     );
   }
+  if (input.newActions > 0) lines.push(`${input.newActions} new suggested ${input.newActions === 1 ? 'action is' : 'actions are'} waiting in the queue for approval.`);
   if (input.demo) lines.push('These results are demo data: the engines were in mock mode.');
   return {
     to: input.to,

@@ -16,6 +16,8 @@ export interface TaskQueue {
   lead(leadId: string, agencyId: string): Promise<void>;
   /** The follow-up to a completed run: page checks, website check, summary email. */
   diagnose(runId: string, agencyId: string): Promise<void>;
+  /** Writes one asset for an action. */
+  generate(assetId: string, agencyId: string): Promise<void>;
 }
 
 export interface AuditDeps extends TrackerDeps {

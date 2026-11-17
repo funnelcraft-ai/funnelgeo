@@ -217,7 +217,7 @@ describe('API keys screen', () => {
     const res = await call('GET', '/v1/admin/settings', admin);
     assert.equal(res.status, 200);
     assert.equal(res.json.encryptionReady, true);
-    assert.deepEqual(res.json.groups.map((g: any) => g.key), ['chatgpt', 'perplexity', 'gemini', 'email']);
+    assert.deepEqual(res.json.groups.map((g: any) => g.key), ['chatgpt', 'perplexity', 'gemini', 'writer', 'email']);
     for (const g of res.json.groups) for (const i of g.items) assert.equal(i.source, 'none', i.key);
   });
 

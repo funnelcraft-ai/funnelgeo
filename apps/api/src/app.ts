@@ -18,6 +18,8 @@ import type { CallQueue } from './tracker/runs.js';
 import { auditRoutes } from './routes/audits.js';
 import { settingsRoutes } from './routes/settings.js';
 import { diagnosisRoutes } from './routes/diagnosis.js';
+import { actionRoutes } from './routes/actions.js';
+import { createWriter, type Writer } from './writer.js';
 import { refreshSettings, startSettingsRefresh } from './settings.js';
 import type { TaskQueue } from './audits/pipeline.js';
 import { isTrustedProxy, requestHost, resolveTenant } from './tenant.js';
@@ -27,6 +29,8 @@ export interface AppOptions {
   resolveCname?: CnameResolver;
   /** Outgoing email. Replaced in tests. */
   mailer?: Mailer;
+  /** Writes action assets; the configured writing model when not given. */
+  writer?: Writer;
   /** Answer engines. Replaced in tests. */
   engines?: EngineSet;
   /** Where engine calls are queued for the worker. Replaced in tests. */
@@ -120,6 +124,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(trackerRoutes, { engines, queue });
   await app.register(auditRoutes, { engines, queue, tasks, siteMode: config.siteFetch });
   await app.register(diagnosisRoutes, { tasks, siteMode: config.siteFetch });
+  await app.register(actionRoutes, { tasks, writer: options.writer ?? createWriter() });
 
   return app;
 }

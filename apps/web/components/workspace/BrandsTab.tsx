@@ -11,6 +11,8 @@ const toList = (value: string) => value.split(',').map((v) => v.trim()).filter(B
 export function BrandsTab({ tracker, act }: { tracker: Tracker; act: Act }) {
   const { client, competitors } = tracker;
   const [aliases, setAliases] = useState(client.brandAliases.join(', '));
+  const [voice, setVoice] = useState(client.voice ?? '');
+  const [voiceSaved, setVoiceSaved] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const max = tracker.limits?.competitors ?? 5;
@@ -21,6 +23,15 @@ export function BrandsTab({ tracker, act }: { tracker: Tracker; act: Act }) {
     await act(async () => {
       await send('PATCH', `/v1/clients/${client.id}`, { brandAliases: toList(aliases) });
       setSaved(true);
+    });
+  }
+
+  async function saveVoice(event: FormEvent) {
+    event.preventDefault();
+    setVoiceSaved(false);
+    await act(async () => {
+      await send('PATCH', `/v1/clients/${client.id}`, { voice: voice.trim() });
+      setVoiceSaved(true);
     });
   }
 
@@ -62,6 +73,29 @@ export function BrandsTab({ tracker, act }: { tracker: Tracker; act: Act }) {
           Matched as whole words, ignoring capitals. After changing names or competitors, use “Re-read answers” on the Visibility tab to apply them to the latest run without spending credits.
         </p>
         {saved && <p className="success" role="status" style={{ marginTop: 10, marginBottom: 0 }}>Names saved.</p>}
+      </form>
+
+      <form className="card" onSubmit={saveVoice}>
+        <div className="card-head">
+          <div>
+            <h2>How {client.name} writes</h2>
+            <p className="muted small">Used for drafts, FAQs, listings and emails in the action queue. Tone, words to use or avoid, and a short sample work best.</p>
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="voice">Brand voice</label>
+          <textarea
+            id="voice"
+            rows={5}
+            maxLength={4000}
+            value={voice}
+            onChange={(e) => setVoice(e.target.value)}
+            placeholder={'Warm and plain. We say "we", never "the clinic". No jargon; explain treatments in everyday words.\n\nSample: "Most implants take two visits. We\u2019ll walk you through every step first."'}
+          />
+          <p className="hint">{voice.length} of 4,000 characters. Without it, drafts use a clear, warm and professional tone.</p>
+        </div>
+        <button className="secondary">Save voice</button>
+        {voiceSaved && <p className="success" role="status" style={{ marginTop: 10, marginBottom: 0 }}>Voice saved.</p>}
       </form>
 
       <div className="card flush">

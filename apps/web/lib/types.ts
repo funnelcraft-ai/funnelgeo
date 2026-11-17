@@ -139,7 +139,7 @@ export interface Run {
 }
 
 export interface Tracker {
-  client: { id: string; name: string; domain: string | null; brandAliases: string[]; status: string; schedule: 'off' | 'weekly'; nextRunAt: string | null };
+  client: { id: string; name: string; domain: string | null; brandAliases: string[]; status: string; schedule: 'off' | 'weekly'; nextRunAt: string | null; voice: string | null };
   competitors: Competitor[];
   prompts: Prompt[];
   runs: Run[];
@@ -265,6 +265,7 @@ export interface PlatformSetting {
   secret: boolean;
   help: string;
   placeholder: string | null;
+  choices: { value: string; label: string }[] | null;
   /** Where the value in use comes from. */
   source: 'saved' | 'environment' | 'none';
   /** A secret is saved but cannot be decrypted with the server's current key. */
@@ -276,7 +277,7 @@ export interface PlatformSetting {
 }
 
 export interface PlatformSettingGroup {
-  key: 'chatgpt' | 'perplexity' | 'gemini' | 'email';
+  key: 'chatgpt' | 'perplexity' | 'gemini' | 'writer' | 'email';
   label: string;
   description: string;
   items: PlatformSetting[];
@@ -359,4 +360,61 @@ export interface DiagnosisView {
   run: Run | null;
   diagnosis: Diagnosis | null;
   sourceTypes: { type: SourceType; label: string }[];
+}
+
+// Action queue -----------------------------------------------------------------------
+
+export type ActionStatus = 'suggested' | 'approved' | 'in_progress' | 'done' | 'dismissed';
+export type AssetKind = 'brief' | 'draft' | 'faq_schema' | 'llms_txt' | 'robots_patch' | 'outreach_email' | 'listing' | 'review_request';
+
+export interface ActionAssetSummary {
+  id: string;
+  kind: AssetKind;
+  label: string;
+  version: number;
+  status: 'pending' | 'done' | 'failed';
+  origin: 'generated' | 'edited';
+  mode: 'live' | 'mock';
+  error: string | null;
+  createdAt: string;
+}
+
+export interface Action {
+  id: string;
+  type: string;
+  typeLabel: string;
+  title: string;
+  rationale: string;
+  impact: number;
+  effort: 'S' | 'M' | 'L';
+  status: ActionStatus;
+  dismissReason: 'member' | 'resolved' | null;
+  owner: { id: string; name: string } | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  dismissedAt: string | null;
+  doneAt: string | null;
+  doneUrl: string | null;
+  doneNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  details: { domain: string | null; pages: { url: string; title: string | null; check: string | null }[]; competitors: string[]; url: string | null };
+  prompts: { id: string; text: string; priority: boolean }[];
+  generators: { kind: AssetKind; label: string; credits: number }[];
+  assets: ActionAssetSummary[];
+}
+
+export interface ActionQueue {
+  actions: Action[];
+  team: { id: string; name: string }[];
+  credits: number;
+  writer: { mode: 'live' | 'mock'; ready: boolean; problem: string | null; label: string };
+  hasRun: boolean;
+}
+
+export interface AssetView {
+  kind: AssetKind;
+  label: string;
+  versions: { id: string; version: number; status: string; origin: 'generated' | 'edited'; mode: 'live' | 'mock'; model: string | null; credits: number; error: string | null; createdAt: string; createdBy: string | null }[];
+  current: { id: string; version: number; status: string; content: string | null };
 }

@@ -6,12 +6,14 @@ import { brandFor } from '../emails.js';
 import { liveEngine, type EngineKey } from '../engines.js';
 import { HttpError, notFound, parse, requireRole } from '../http.js';
 import type { Mailer } from '../mailer.js';
+import { createLiveWriter, resolveWriter, WRITER_LABEL } from '../writer.js';
 import { SETTINGS, encrypt, encryptionReady, refreshSettings, settingState, specFor, type SettingGroup } from '../settings.js';
 
 const GROUPS: { key: SettingGroup; label: string; description: string }[] = [
   { key: 'chatgpt', label: 'ChatGPT', description: 'OpenAI API, with web search. Used to ask ChatGPT the tracked questions.' },
   { key: 'perplexity', label: 'Perplexity', description: 'Perplexity Sonar API. Also used to suggest competitors for audits.' },
   { key: 'gemini', label: 'Gemini', description: 'Google Gemini API, with grounding in Google Search.' },
+  { key: 'writer', label: 'Writing model', description: 'Writes the briefs, drafts, FAQs and emails in the action queue. Nothing it writes is published automatically.' },
   { key: 'email', label: 'Email', description: 'The SMTP server that sends invites, password resets, audit reports and lead alerts.' },
 ];
 
@@ -47,6 +49,7 @@ function present(key: string) {
     secret: spec.secret,
     help: spec.help,
     placeholder: spec.placeholder ?? null,
+    choices: spec.choices ?? null,
     source: state.source,
     unreadable: state.unreadable,
     shown: state.source === 'saved' ? (spec.secret ? state.hint : state.value) : state.source === 'environment' ? envHint : null,
@@ -120,7 +123,7 @@ export async function settingsRoutes(app: FastifyInstance, opts: { mailer: Maile
     '/v1/admin/settings/test/:target',
     { ...guard, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (req) => {
-      const { target } = parse(z.object({ target: z.enum(['chatgpt', 'perplexity', 'gemini', 'email']) }), req.params);
+      const { target } = parse(z.object({ target: z.enum(['chatgpt', 'perplexity', 'gemini', 'writer', 'email']) }), req.params);
       await refreshSettings();
 
       if (target === 'email') {
@@ -138,6 +141,23 @@ export async function settingsRoutes(app: FastifyInstance, opts: { mailer: Maile
           return { ok: true, message: `Sent to ${req.user!.email}. Check that it arrived, including the spam folder.`, latencyMs: Math.round(performance.now() - started) };
         } catch (err) {
           return { ok: false, message: String((err as Error)?.message ?? err).slice(0, 300) };
+        }
+      }
+
+      if (target === 'writer') {
+        const resolved = resolveWriter();
+        if (resolved.problem) return { ok: false, message: resolved.problem };
+        const started = performance.now();
+        try {
+          const written = await createLiveWriter().write({ system: 'You are a concise assistant.', prompt: 'In one short sentence, what is a content brief?', maxTokens: 120 }, AbortSignal.timeout(TEST_TIMEOUT_MS));
+          return {
+            ok: true,
+            message: `${WRITER_LABEL[resolved.provider]} (${written.model}) answered in ${((performance.now() - started) / 1000).toFixed(1)} s.`,
+            sample: written.text.slice(0, 240),
+            latencyMs: Math.round(performance.now() - started),
+          };
+        } catch (err) {
+          return { ok: false, message: explainEngineError(err) };
         }
       }
 
