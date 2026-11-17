@@ -209,7 +209,7 @@ td.actions > * + * { margin-left: 16px; }
 .empty { padding: 44px 24px; text-align: center; color: var(--muted); }
 .empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
 
-.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; padding: 4px 10px; border-radius: 8px; background: var(--wash); color: var(--ink-2); }
+.pill { white-space: nowrap; flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; padding: 4px 10px; border-radius: 8px; background: var(--wash); color: var(--ink-2); }
 .pill.ok { background: var(--ok-wash); color: var(--ok); }
 .pill.warn { background: var(--warn-wash); color: var(--warn); }
 .pill.bad { background: var(--danger-wash); color: var(--danger); }
@@ -409,4 +409,23 @@ html:has(.embed), body:has(.embed) { background: transparent; }
   dl.kv dd { margin-bottom: 10px; }
   .uploader { flex-wrap: wrap; }
   .auth-card { padding: 28px 22px; }
+}
+
+/* API keys screen ------------------------------------------------------------- */
+.key-list { display: grid; gap: 4px; }
+.key-row { padding: 14px 0; border-top: 1px solid var(--line); }
+.key-row:first-child { border-top: none; padding-top: 0; }
+.key-row .row > button { height: 40px; }
+.key-row .hint { display: flex; gap: 6px; align-items: flex-start; }
+.key-row .hint .icon { color: var(--ok); flex: none; margin-top: 1px; width: 15px; height: 15px; }
+.key-row .hint.missing { color: var(--warn); }
+.env-name { font-size: 11.5px; color: var(--muted); background: var(--wash); padding: 1px 6px; border-radius: 5px; margin-left: 6px; font-weight: 400; }
+.key-test { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 16px; margin-top: 6px; border-top: 1px solid var(--line); }
+.key-test .hint { margin: 0; }
+.test-result { margin-top: 14px; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 13.5px; }
+.test-result.ok { background: var(--ok-wash); color: var(--ok); }
+.test-result.bad { background: var(--danger-wash); color: var(--danger); }
+.test-result blockquote { margin: 8px 0 0; padding-left: 10px; border-left: 2px solid currentColor; color: var(--ink-2); font-style: italic; }
+@media (max-width: 640px) {
+  .key-row .row > button.link { height: auto; margin-top: -4px; }
 }

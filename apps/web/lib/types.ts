@@ -255,3 +255,41 @@ export interface AuditEstimate {
 }
 
 export const ENGINE_LABEL: Record<string, string> = { chatgpt: 'ChatGPT', perplexity: 'Perplexity', gemini: 'Gemini' };
+
+// Platform API keys screen ------------------------------------------------------
+
+export interface PlatformSetting {
+  key: string;
+  label: string;
+  secret: boolean;
+  help: string;
+  placeholder: string | null;
+  /** Where the value in use comes from. */
+  source: 'saved' | 'environment' | 'none';
+  /** A secret is saved but cannot be decrypted with the server's current key. */
+  unreadable: boolean;
+  /** The last four characters of a secret, or a non-secret value in full. */
+  shown: string | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+export interface PlatformSettingGroup {
+  key: 'chatgpt' | 'perplexity' | 'gemini' | 'email';
+  label: string;
+  description: string;
+  items: PlatformSetting[];
+}
+
+export interface PlatformSettings {
+  encryptionReady: boolean;
+  engineMode: 'live' | 'mock';
+  groups: PlatformSettingGroup[];
+}
+
+export interface SettingTestResult {
+  ok: boolean;
+  message: string;
+  sample?: string;
+  latencyMs?: number;
+}

@@ -38,9 +38,8 @@ export const config = {
   publicScheme: process.env.PUBLIC_SCHEME ?? 'http',
   publicPort: process.env.PUBLIC_PORT ?? '',
   /** SMTP connection URL, e.g. smtps://user:pass@smtp.example.com:465. Unset: emails are logged, not sent. */
-  smtpUrl: process.env.SMTP_URL ?? '',
-  /** Address every email is sent from. The display name is the agency's. */
-  mailFrom: process.env.MAIL_FROM ?? `no-reply@${platformDomain}`,
+  /** Used when no send-from address is set. The display name is always the agency's. */
+  defaultMailFrom: `no-reply@${platformDomain}`,
   /** Where uploaded logos and favicons are stored. */
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? 'data/uploads'),
   /** Redis for the job queue (BullMQ). */
@@ -64,9 +63,9 @@ export const config = {
   engineAttempts: Number(process.env.ENGINE_ATTEMPTS ?? 3),
   workerConcurrency: Number(process.env.WORKER_CONCURRENCY ?? 4),
   engines: {
-    chatgpt: { apiKey: process.env.OPENAI_API_KEY ?? '', model: process.env.OPENAI_MODEL ?? '', baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com' },
-    perplexity: { apiKey: process.env.PERPLEXITY_API_KEY ?? '', model: process.env.PERPLEXITY_MODEL ?? '', baseUrl: process.env.PERPLEXITY_BASE_URL ?? 'https://api.perplexity.ai' },
-    gemini: { apiKey: process.env.GEMINI_API_KEY ?? '', model: process.env.GEMINI_MODEL ?? '', baseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com' },
+    chatgpt: { baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com' },
+    perplexity: { baseUrl: process.env.PERPLEXITY_BASE_URL ?? 'https://api.perplexity.ai' },
+    gemini: { baseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com' },
   },
   secureCookies: process.env.NODE_ENV === 'production',
   isTest: process.env.NODE_ENV === 'test',

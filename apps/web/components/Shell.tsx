@@ -9,6 +9,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: IconName;
+  /** Active only on this exact path, not on pages below it. */
+  exact?: boolean;
 }
 
 export function NavLinks({ items }: { items: NavItem[] }) {
@@ -16,7 +18,7 @@ export function NavLinks({ items }: { items: NavItem[] }) {
   return (
     <nav className="nav" aria-label="Main">
       {items.map((item) => (
-        <a key={item.href} href={item.href} aria-current={pathname.startsWith(item.href) ? 'page' : undefined}>
+        <a key={item.href} href={item.href} aria-current={(item.exact ? pathname === item.href : pathname.startsWith(item.href)) ? 'page' : undefined}>
           <Icon name={item.icon} />
           {item.label}
         </a>

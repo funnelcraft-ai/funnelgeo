@@ -1,5 +1,6 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import { config } from './config.js';
+import { setting } from './settings.js';
 
 export interface Mail {
   to: string;
@@ -17,26 +18,33 @@ export interface Mailer {
 }
 
 /**
- * SMTP works with any provider, so none is baked in. Without SMTP_URL the
- * message is written to the log instead, which is enough for development:
- * the invite or reset link is in the text.
+ * SMTP works with any provider, so none is baked in. The connection and the
+ * send-from address come from the API keys screen, or else from SMTP_URL and
+ * MAIL_FROM in the environment, and are read on every send, so a change takes
+ * effect without a restart. Without an SMTP connection the message is written
+ * to the log instead, which is enough for development: the link is in the text.
  */
 export function createMailer(): Mailer {
-  if (!config.smtpUrl) {
-    return {
-      enabled: false,
-      async send(mail) {
-        if (config.isTest) return;
-        console.log(`[email not sent: SMTP_URL is not set]\nTo: ${mail.to}\nSubject: ${mail.subject}\n\n${mail.text}\n`);
-      },
-    };
-  }
-  const transport = nodemailer.createTransport(config.smtpUrl);
+  let transport: Transporter | null = null;
+  let transportFor = '';
   return {
-    enabled: true,
+    get enabled() {
+      return setting('SMTP_URL') !== '';
+    },
     async send(mail) {
+      const smtpUrl = setting('SMTP_URL');
+      if (!smtpUrl) {
+        if (config.isTest) return;
+        console.log(`[email not sent: no SMTP connection is set]\nTo: ${mail.to}\nSubject: ${mail.subject}\n\n${mail.text}\n`);
+        return;
+      }
+      if (!transport || transportFor !== smtpUrl) {
+        transport?.close();
+        transport = nodemailer.createTransport(smtpUrl);
+        transportFor = smtpUrl;
+      }
       await transport.sendMail({
-        from: { name: mail.fromName, address: config.mailFrom },
+        from: { name: mail.fromName, address: setting('MAIL_FROM') || config.defaultMailFrom },
         to: mail.to,
         subject: mail.subject.replace(/[\r\n]+/g, ' '),
         text: mail.text,

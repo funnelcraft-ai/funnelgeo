@@ -16,6 +16,8 @@ import { createEngines, type EngineSet } from './engines.js';
 import { createQueue } from './queue.js';
 import type { CallQueue } from './tracker/runs.js';
 import { auditRoutes } from './routes/audits.js';
+import { settingsRoutes } from './routes/settings.js';
+import { refreshSettings, startSettingsRefresh } from './settings.js';
 import type { TaskQueue } from './audits/pipeline.js';
 import { isTrustedProxy, requestHost, resolveTenant } from './tenant.js';
 
@@ -34,6 +36,12 @@ export interface AppOptions {
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: config.isTest ? false : { level: 'info' } });
+
+  // Saved API keys and settings, re-read in the background so changes made
+  // by another process reach this one within seconds.
+  await refreshSettings();
+  const settingsRefresh = startSettingsRefresh((err) => app.log.error(err));
+  app.addHook('onClose', async () => settingsRefresh.stop());
 
   await app.register(cookie);
   await app.register(rateLimit, {
@@ -94,6 +102,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(teamRoutes, { mailer });
   await app.register(clientRoutes);
   await app.register(adminRoutes);
+  await app.register(settingsRoutes, { mailer });
 
   const engines = options.engines ?? createEngines();
   let own: ReturnType<typeof createQueue> | null = null;

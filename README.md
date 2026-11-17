@@ -77,6 +77,10 @@ read per site.
 Not in this milestone: a server-generated PDF file (the browser makes it),
 sentiment, and sending the website form's emails from the agency's own domain.
 
+**Platform API keys** (super admin): one screen for the engine keys and
+models and the email server, with a Test button for each. See
+[API keys screen](#api-keys-screen).
+
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
@@ -157,11 +161,33 @@ form and its emails, limits).
 When you add a tenant table: add `agency_id`, enable row-level security, add
 policies in the same migration, and add a case to the isolation test.
 
+## API keys screen
+
+The super admin enters engine keys and models, the SMTP connection and the
+send-from address at **/admin/settings** on the platform's own address (nav:
+"API keys"). Each engine and the email server has a Test button that makes one
+real call (a short question, or an email to the super admin's own address).
+
+- Secrets are encrypted in the application with AES-256-GCM before they reach
+  the database, using `SETTINGS_ENCRYPTION_KEY` (32 bytes, base64:
+  `openssl rand -base64 32`). The setting's name is bound into each value, so a
+  value can't be moved to another setting's row. Without that key the screen
+  says so and refuses to save secrets.
+- Keep the encryption key out of database backups and keep a copy safe. If it
+  is lost or changed, saved secrets show as "can't be read" and must be
+  entered again.
+- A key is never sent back to the browser, only its last four characters.
+- Only the owner database role can touch `platform_settings`; the tenant role
+  (`geo_app`) has no privileges on it.
+- A saved value wins over the environment variable of the same name; removing
+  it falls back to the environment. The API and every worker re-read settings
+  every 15 seconds, so changes need no restart.
+
 ## Answer engines
 
-Set `ENGINE_MODE=live` and, for each engine you want, its API key and model
-(`OPENAI_*`, `PERPLEXITY_*`, `GEMINI_*`). An engine with either missing is
-simply not used. The three request formats were checked against the
+Set `ENGINE_MODE=live` and, for each engine you want, its API key and model,
+on the API keys screen or as `OPENAI_*`, `PERPLEXITY_*`, `GEMINI_*` in the
+environment. An engine with either missing is simply not used. The three request formats were checked against the
 providers' documentation on 16 Nov 2026 but have not been run against the live
 services; run `spike/cost-spike.mjs` with your keys first, since it uses the
 same formats.
@@ -216,7 +242,8 @@ to other sites) and ask search engines not to index them.
 
 ## Email
 
-Any SMTP provider works; set `SMTP_URL` and `MAIL_FROM`. All emails are sent
+Any SMTP provider works; set the SMTP connection and send-from address on the
+API keys screen, or `SMTP_URL` and `MAIL_FROM` in the environment. All emails are sent
 from the one `MAIL_FROM` address with the agency's name as the display name,
 so set up SPF and DKIM for that address's domain with your provider. Sending
 from each agency's own domain is not built yet.
@@ -241,6 +268,8 @@ storage first; `src/routes/files.ts` is the only file that touches the disk.
   issued for known workspaces. **That file has not been run**; test it on the
   server before pointing real domains at it.
 - Point `*.PLATFORM_DOMAIN` and `CNAME_TARGET` at that proxy.
+- Set `SETTINGS_ENCRYPTION_KEY` on the API and the workers (the same value on
+  every process), before entering any keys on the API keys screen.
 - Set `NODE_ENV=production` (secure cookies), `PUBLIC_SCHEME=https` and an
   empty `PUBLIC_PORT`.
 - In production the owner role should not be a superuser, and `geo_app` must

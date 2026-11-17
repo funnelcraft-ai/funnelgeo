@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { config } from './config.js';
+import { setting, settingsVersion } from './settings.js';
 
 export interface EngineAnswer {
   text: string;
@@ -44,8 +45,7 @@ const urls = (values: unknown[]): string[] => values.filter((v): v is string => 
 // the live services; spike/cost-spike.mjs uses the same formats and is the
 // quickest way to confirm them with real keys.
 
-function chatgpt(): EngineAdapter {
-  const { apiKey, model, baseUrl } = config.engines.chatgpt;
+function chatgpt({ apiKey, model, baseUrl }: EngineCredentials): EngineAdapter {
   return {
     key: 'chatgpt',
     async ask(prompt, signal) {
@@ -67,8 +67,7 @@ function chatgpt(): EngineAdapter {
   };
 }
 
-function perplexity(): EngineAdapter {
-  const { apiKey, model, baseUrl } = config.engines.perplexity;
+function perplexity({ apiKey, model, baseUrl }: EngineCredentials): EngineAdapter {
   return {
     key: 'perplexity',
     async ask(prompt, signal) {
@@ -90,8 +89,7 @@ function perplexity(): EngineAdapter {
   };
 }
 
-function gemini(): EngineAdapter {
-  const { apiKey, model, baseUrl } = config.engines.gemini;
+function gemini({ apiKey, model, baseUrl }: EngineCredentials): EngineAdapter {
   return {
     key: 'gemini',
     async ask(prompt, signal) {
@@ -157,17 +155,56 @@ export interface EngineSet {
   available: Map<string, EngineAdapter>;
 }
 
-/** In live mode an engine is available only when both its API key and model are set. */
+export interface EngineCredentials {
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+}
+
+const SETTING_PREFIX: Record<EngineKey, string> = { chatgpt: 'OPENAI', perplexity: 'PERPLEXITY', gemini: 'GEMINI' };
+
+/** An engine's key and model as currently set: saved by the super admin, or else from the environment. */
+export function credentialsFor(key: EngineKey): EngineCredentials {
+  const prefix = SETTING_PREFIX[key];
+  return { apiKey: setting(`${prefix}_API_KEY`), model: setting(`${prefix}_MODEL`), baseUrl: config.engines[key].baseUrl };
+}
+
+/** A live adapter for one engine with its current credentials, or null when its key or model is missing. */
+export function liveEngine(key: EngineKey): EngineAdapter | null {
+  const credentials = credentialsFor(key);
+  if (!credentials.apiKey || !credentials.model) return null;
+  return ({ chatgpt, perplexity, gemini })[key](credentials);
+}
+
+/**
+ * In live mode an engine is available only when both its API key and model
+ * are set. The set is rebuilt whenever the saved settings change, so a key
+ * entered on the API keys screen is used from the next call on.
+ */
 export function createEngines(): EngineSet {
-  const available = new Map<string, EngineAdapter>();
   if (config.engineMode === 'mock') {
+    const available = new Map<string, EngineAdapter>();
     for (const key of ENGINE_KEYS) available.set(key, mock(key));
     return { mode: 'mock', available };
   }
-  const live: Record<EngineKey, () => EngineAdapter> = { chatgpt, perplexity, gemini };
-  for (const key of ENGINE_KEYS) {
-    const settings = config.engines[key];
-    if (settings.apiKey && settings.model) available.set(key, live[key]());
-  }
-  return { mode: 'live', available };
+  let builtFor = -1;
+  let available = new Map<string, EngineAdapter>();
+  const signature = () => ENGINE_KEYS.map((k) => JSON.stringify(credentialsFor(k))).join('|');
+  let builtSignature = '';
+  return {
+    mode: 'live',
+    get available() {
+      // Rebuild when saved settings change, or when the environment does (in tests).
+      if (builtFor !== settingsVersion() || builtSignature !== signature()) {
+        available = new Map();
+        for (const key of ENGINE_KEYS) {
+          const engine = liveEngine(key);
+          if (engine) available.set(key, engine);
+        }
+        builtFor = settingsVersion();
+        builtSignature = signature();
+      }
+      return available;
+    },
+  };
 }
