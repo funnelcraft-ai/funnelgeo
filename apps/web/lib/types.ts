@@ -6,11 +6,13 @@ export interface Branding {
   primaryColor?: string;
   accentColor?: string;
   senderName?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
 }
 
 export type Tenant =
   | { kind: 'platform'; name: string }
-  | { kind: 'agency'; name: string; branding: Branding; suspended: boolean };
+  | { kind: 'agency'; name: string; branding: Branding; suspended: boolean; widgetEnabled: boolean };
 
 export interface SessionUser {
   id: string;
@@ -43,6 +45,7 @@ export interface Agency {
   name: string;
   slug: string;
   branding: Branding;
+  widgetEnabled: boolean;
   workspaceUrl: string;
   defaultHost: string;
   customDomain: string | null;
@@ -167,3 +170,88 @@ export interface Answer {
   mentions: { name: string; isClient: boolean; position: number }[];
   citations: { url: string; domain: string; isClient: boolean }[];
 }
+
+// Audits ---------------------------------------------------------------------
+
+export type CheckStatus = 'pass' | 'warn' | 'fail' | 'unknown';
+
+export interface SiteCheck {
+  key: string;
+  label: string;
+  status: CheckStatus;
+  detail: string;
+}
+
+export interface Fix {
+  key: string;
+  title: string;
+  why: string;
+  effort: 'quick' | 'some' | 'project';
+}
+
+export interface AuditReport {
+  id: string;
+  status: 'running' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt: string | null;
+  business: string;
+  domain: string;
+  category: string | null;
+  location: string | null;
+  demo: boolean;
+  run: { status: string; samples: number; promptCount: number; engines: string[]; totalCalls: number; done: number; failed: number };
+  site: { status: 'pending' | 'done' | 'failed'; passed: number; findings: { pagesChecked: number; finalUrl: string | null; checks: SiteCheck[] } | null };
+  competitors: string[];
+  visibility: Visibility | null;
+  missing: { id: string; text: string; competitors: string[] }[];
+  gaps: { domain: string; answers: number }[];
+  fixes: Fix[];
+  // In-app only:
+  shareToken?: string;
+  clientId?: string;
+  clientStatus?: string;
+  source?: 'manual' | 'widget';
+}
+
+export interface AuditListItem {
+  id: string;
+  status: 'running' | 'completed' | 'failed';
+  source: 'manual' | 'widget';
+  createdAt: string;
+  clientId: string;
+  clientStatus: string;
+  business: string;
+  domain: string;
+  answers: number;
+  mentioned: number;
+  progress: { done: number; total: number; site: string };
+  leadEmail: string | null;
+}
+
+export interface Lead {
+  id: string;
+  name: string | null;
+  email: string;
+  business: string;
+  domain: string;
+  category: string;
+  location: string | null;
+  status: 'received' | 'audit_started' | 'not_run';
+  note: string | null;
+  createdAt: string;
+  auditId: string | null;
+  auditStatus: 'running' | 'completed' | 'failed' | null;
+  clientStatus: string | null;
+}
+
+export interface AuditEstimate {
+  engines: string[];
+  creditsPerPrompt: number;
+  samples: number;
+  quota: { used: number; max: number };
+  creditsRemaining: number;
+  engineMode: 'live' | 'mock';
+  limits: { prompts: number; competitors: number };
+}
+
+export const ENGINE_LABEL: Record<string, string> = { chatgpt: 'ChatGPT', perplexity: 'Perplexity', gemini: 'Gemini' };

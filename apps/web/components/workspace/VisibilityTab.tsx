@@ -18,7 +18,7 @@ interface Props {
 const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 
 /** A count with what it is out of, and a bar of the same proportion. */
-function Measure({ label, part, whole, strong, tag }: { label: string; part: number; whole: number; strong?: boolean; tag?: string }) {
+export function Measure({ label, part, whole, strong, tag }: { label: string; part: number; whole: number; strong?: boolean; tag?: string }) {
   return (
     <div className={`measure${strong ? ' strong' : ''}`}>
       <div className="measure-head">

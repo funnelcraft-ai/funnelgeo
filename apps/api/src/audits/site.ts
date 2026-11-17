@@ -223,7 +223,7 @@ export async function checkSite(domain: string, fetcher: SiteFetcher): Promise<S
     'page_basics',
     'Page title and description',
     basics.length === 0 ? 'pass' : 'warn',
-    basics.length === 0 ? `Title: “${title.slice(0, 80)}”.` : `The home page has no ${basics.join(' or ')}.`,
+    basics.length === 0 ? `Title: “${title.slice(0, 80)}”.` : `The home page is missing ${basics.join(' and ')}.`,
   );
 
   // 8. llms.txt.

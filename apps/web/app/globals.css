@@ -295,6 +295,74 @@ textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px;
 select.compact { height: 36px; width: auto; padding: 0 10px; border-radius: 10px; font-size: 13.5px; }
 .inline-form { padding: 20px 24px 24px; border-top: 1px solid var(--line); }
 
+/* ---- Audits ----------------------------------------------------------------- */
+.button.disabled { opacity: 0.55; pointer-events: none; }
+.steps { list-style: none; display: flex; gap: 8px; padding: 0; margin: 0 0 20px; font-size: 14px; color: var(--muted); }
+.steps li { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.steps li[aria-current='step'] { color: var(--ink); border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-wash); font-weight: 600; }
+.card.narrow { max-width: 760px; }
+.competitor-rows { display: grid; gap: 12px; }
+.run-summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.run-summary p { margin: 4px 0 0; }
+.audit-actions .card-head { margin-bottom: 4px; }
+.audit-actions .hint { margin-top: 10px; }
+.progress-steps { display: grid; gap: 18px; margin-top: 16px; }
+
+.report-title { margin: 8px 0 24px; }
+.report-title h1 { margin: 4px 0 6px; font-size: 34px; letter-spacing: -0.02em; }
+.report-title .sub { margin: 0; color: var(--muted); }
+.report-head { padding: 28px 0 8px; }
+.report-shell { padding-top: 8px; }
+.report-toolbar { display: flex; justify-content: flex-end; padding-top: 24px; margin-bottom: -56px; }
+.fixes { list-style: none; margin: 0; padding: 0; counter-reset: fix; }
+.fixes li { display: flex; align-items: flex-start; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); counter-increment: fix; }
+.fixes li:first-child { border-top: 0; padding-top: 4px; }
+.fixes li::before { content: counter(fix); flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--primary-wash); color: var(--primary-deep); }
+.fixes li > div { flex: 1; min-width: 0; }
+.fixes p, .checks p { margin: 4px 0 0; font-size: 14px; }
+.checks { list-style: none; margin: 0; padding: 0 24px 8px; }
+.checks li { display: grid; grid-template-columns: 110px 1fr; gap: 16px; align-items: start; padding: 14px 0; border-top: 1px solid var(--line); }
+.checks li:first-child { border-top: 0; }
+.checks .pill { justify-self: start; }
+.method { margin: 4px 4px 20px; max-width: 760px; }
+.cta-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; background: var(--primary-wash); border-color: transparent; }
+.cta-card h2 { margin-bottom: 4px; }
+.cta-card p { margin: 0; }
+.print-only { display: none; }
+
+.divider { height: 1px; background: var(--line); margin: 24px 0 20px; }
+.toggle-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.toggle-row p { margin: 4px 0 0; max-width: 620px; }
+textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; resize: none; }
+
+/* The website form, inside the agency's site. */
+/* The frame is see-through, so only the form's own card shows on the agency's page. */
+html:has(.embed), body:has(.embed) { background: transparent; }
+.embed { padding: 4px; }
+.widget-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; max-width: 540px; }
+.widget-card h1 { font-size: 22px; margin: 0 0 6px; }
+.widget-card > p { margin: 0 0 18px; }
+.widget-card .field { margin-bottom: 14px; }
+.widget-card .row { gap: 12px; }
+.widget-card .row .field { margin-bottom: 14px; }
+.widget-card .fineprint { margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
+.trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Paper: the report on its own, in the agency's brand. */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff !important; }
+  .topbar, .no-print, .crumbs, .report-toolbar { display: none !important; }
+  .print-only { display: block !important; }
+  .shell { padding: 0; max-width: none; }
+  .card, .panel { box-shadow: none !important; break-inside: avoid; }
+  .card.flush tr { break-inside: avoid; }
+  .bar > span, .pill, .score, .fixes li::before, .panel, .cta-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .grid-main { grid-template-columns: minmax(0, 1fr) 280px; }
+  a { color: inherit; text-decoration: none; }
+  .report-head { padding-top: 0; }
+}
+
 /* ---- Platform landing ----------------------------------------------------- */
 .landing h1 { font-size: 34px; margin-bottom: 12px; }
 .landing .points { list-style: none; padding: 0; margin: 20px 0 26px; display: grid; gap: 10px; }
@@ -320,6 +388,11 @@ select.compact { height: 36px; width: auto; padding: 0 10px; border-radius: 10px
   .toolbar > button, .toolbar > .button { flex: 1; }
   .search kbd { display: none; }
   .mini-stats, .mini-stats.two { grid-template-columns: 1fr; gap: 14px; }
+  .checks { padding: 0 16px 8px; }
+  .checks li { grid-template-columns: 1fr; gap: 6px; }
+  .report-title h1 { font-size: 27px; }
+  .report-toolbar { margin-bottom: 0; }
+  .toggle-row { flex-direction: column; }
   .tabs { width: 100%; }
   .prompt-table td.num { display: inline-block; padding: 4px 0 4px 20px; text-align: left; }
   .prompt-table td.num::before { content: attr(data-label) ' '; color: var(--muted); font-size: 12.5px; }

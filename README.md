@@ -45,10 +45,42 @@ Not in this milestone, though the PRD lists them under the tracker:
 The weekly schedule is off until someone turns it on for a client, so a new
 client never spends credits unasked. The PRD said weekly by default.
 
+**Milestone 4, Prospect audit and lead widget** (complete, tested against
+stand-in engines and stand-in websites):
+
+- New audit: business, website, what it does and where; ten suggested buyer
+  questions to edit, and competitors suggested by an answer engine
+- Each audit asks every question once on each engine and checks the website
+  for AI readiness (nine checks, below); it uses one of the plan's monthly
+  audits plus credits
+- Report: how often the business is named, by engine and against competitors;
+  questions where only competitors are named; third-party sites the engines
+  cite where the business is missing; the first five fixes, in a fixed order
+- Share link on the agency's own address, read-only and replaceable; PDF via
+  the browser's print dialog ("Save as PDF"), with a print layout
+- Prospects stay out of the client list and the client limit until converted;
+  converting keeps the questions, competitors and results
+- Website form: one line of code on the agency's site. Each request becomes a
+  lead and an audit; the visitor gets the report by email and the agency's
+  owners get a lead email. Off by default; rate limited; a hidden field
+  catches bots; repeats within a day are ignored; when audits or credits run
+  out the lead is still saved and both sides are told
+- A report button (text and link) on every shared report, set in Settings
+
+The nine site checks: the site loads; HTTPS; robots.txt lets AI crawlers in
+(blocking OAI-SearchBot, PerplexityBot, Claude-SearchBot or Google-Extended
+fails, blocking training-only crawlers is a warning); readable without
+JavaScript; schema.org structured data; question-and-answer content; page
+title and description; sitemap; llms.txt (lowest weight). Up to 10 pages are
+read per site.
+
+Not in this milestone: a server-generated PDF file (the browser makes it),
+sentiment, and sending the website form's emails from the agency's own domain.
+
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
-Not built yet: prospect audit, diagnosis, action queue, proof, reports.
+Not built yet: diagnosis for clients, action queue, proof, reports.
 
 ## Layout
 
@@ -93,15 +125,17 @@ CREATE DATABASE geo_test OWNER geo_owner;   -- for npm test
 ## Tests
 
 ```bash
-npm test          # 49 integration tests; needs Postgres (geo_test) and Redis
+npm test          # 71 integration tests; needs Postgres (geo_test) and Redis
 npm run typecheck
 npm run build
 ```
 
 The tests wipe and rebuild `geo_test` on every run. They cover tenant
 isolation at the API and directly at the database, roles, whitelabel, plan
-limits, suspension, emails, password reset, uploads, and the tracker: a
-25-prompt run end to end, parsing, retries, refunds, schedules and credits.
+limits, suspension, emails, password reset, uploads, the tracker (a 25-prompt
+run end to end, parsing, retries, refunds, schedules, credits) and audits (the
+site check, address safety, reports, share links, conversion, the website
+form and its emails, limits).
 
 ## How tenant isolation works
 
@@ -152,12 +186,31 @@ PATCH /v1/admin/plans/:key        { "monthlyCredits": 8000 }
 POST  /v1/admin/agencies/:id/credits { "amount": 1000, "note": "..." }
 ```
 
+## Website checks and safety
+
+The site check fetches whatever website a member of the public types into the
+website form, so `src/audits/fetch.ts` refuses anything that is not on the
+public internet: every connection, including each redirect, is checked after
+DNS resolution, so a name pointing at 127.0.0.1, 10.x, 169.254.169.254 (cloud
+metadata) and similar is refused. Only ports 80 and 443, at most 3 redirects,
+10 seconds and 1.5 MB per page. The user agent is a neutral
+`AI-Readiness-Check/1.0`, so prospects' logs do not name the platform.
+
+`SITE_FETCH=mock` checks a made-up website instead, for development without
+internet access; reports made that way are labelled demo data, and the API
+refuses to start with it in production.
+
+Every page refuses to be shown inside another site's frame, except the
+website form under `/embed/`. Shared reports send no referrer (their links go
+to other sites) and ask search engines not to index them.
+
 ## Whitelabel rules
 
 - The platform name and the Funnelcraft logo appear only on the platform's own
   address (landing, signup, super admin).
 - On an agency's address everything is the agency's: tab title and icon, logo,
-  colours, and the sender name, logo and button colour of every email.
+  colours, and the sender name, logo and button colour of every email. The
+  embed code for the website form names only the agency's address.
 - The design system (`apps/web/app/globals.css`) takes two colours from the
   agency, `--primary` and `--accent`; every other colour is neutral.
 

@@ -18,6 +18,7 @@ export function SettingsPanel({ initial }: { initial: Agency }) {
       <div className="stack">
         <BrandingCard agency={agency} onSaved={setAgency} />
         <DomainCard agency={agency} onSaved={setAgency} />
+        <AuditSettingsCard agency={agency} onSaved={setAgency} />
         <PlanCard agency={agency} />
       </div>
     </>
@@ -272,6 +273,94 @@ function DomainCard({ agency, onSaved }: { agency: Agency; onSaved: (a: Agency) 
       )}
       {state.detail && <p className="muted small" role="status" style={{ margin: '14px 0 0' }}>{state.detail}</p>}
       {state.error && <p className="error" role="alert" style={{ margin: '14px 0 0' }}>{state.error}</p>}
+    </section>
+  );
+}
+
+function AuditSettingsCard({ agency, onSaved }: { agency: Agency; onSaved: (a: Agency) => void }) {
+  const [ctaLabel, setCtaLabel] = useState(agency.branding.ctaLabel ?? '');
+  const [ctaUrl, setCtaUrl] = useState(agency.branding.ctaUrl ?? '');
+  const [state, setState] = useState<{ error?: string; saved?: string; busy?: boolean }>({});
+  const [copied, setCopied] = useState(false);
+  const snippet = `<div data-ai-visibility-audit></div>\n<script src="${agency.workspaceUrl}/embed/audit.js" async></script>`;
+
+  async function save(body: object, saved: string) {
+    setState({ busy: true });
+    try {
+      const res = await send<{ agency: Agency }>('PATCH', '/v1/agency', body);
+      onSaved(res.agency);
+      setState({ saved });
+    } catch (err) {
+      setState({ error: (err as Error).message });
+    }
+  }
+
+  return (
+    <section className="card" id="widget">
+      <div className="card-head">
+        <div>
+          <h2>Audit reports and website form</h2>
+          <p className="muted small">The button at the end of every shared report, and a form that turns visitors to your website into leads.</p>
+        </div>
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const both = ctaLabel.trim() && ctaUrl.trim();
+          if ((ctaLabel.trim() || ctaUrl.trim()) && !both) return setState({ error: 'Fill in both the button text and the link, or neither.' });
+          save({ branding: { ctaLabel: ctaLabel.trim() || null, ctaUrl: ctaUrl.trim() || null } }, 'Report button saved.');
+        }}
+      >
+        <div className="row top" style={{ marginBottom: 16 }}>
+          <div className="field">
+            <label htmlFor="cta-label">Report button text</label>
+            <input id="cta-label" type="text" maxLength={40} value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} placeholder="Book a free call" />
+          </div>
+          <div className="field">
+            <label htmlFor="cta-url">Report button link</label>
+            <input id="cta-url" type="url" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder="https://youragency.com/book" />
+            <p className="hint">Your booking page or contact form. Must start with https://.</p>
+          </div>
+        </div>
+        <button className="secondary" disabled={state.busy}>Save report button</button>
+      </form>
+
+      <div className="divider" />
+      <div className="toggle-row">
+        <div>
+          <strong>Website form</strong>
+          <p className="muted small">
+            {agency.widgetEnabled
+              ? 'On. Each request runs an audit, emails the report to the visitor and tells you about the lead. It uses one of your monthly audits and its credits; when those run out, requests are still saved as leads.'
+              : 'Off. Turn it on, then paste the code below into any page of your website.'}
+          </p>
+        </div>
+        <button
+          className={agency.widgetEnabled ? 'secondary' : undefined}
+          disabled={state.busy}
+          aria-pressed={agency.widgetEnabled}
+          onClick={() => save({ widgetEnabled: !agency.widgetEnabled }, agency.widgetEnabled ? 'Website form turned off.' : 'Website form turned on.')}
+        >
+          {agency.widgetEnabled ? 'Turn off' : 'Turn on'}
+        </button>
+      </div>
+      <label className="label" htmlFor="snippet" style={{ display: 'block', margin: '16px 0 6px' }}>Code for your website</label>
+      <textarea id="snippet" className="code" rows={2} readOnly value={snippet} onFocus={(e) => e.currentTarget.select()} />
+      <div className="row" style={{ marginTop: 10 }}>
+        <button
+          type="button"
+          className="secondary sm"
+          onClick={async () => {
+            await navigator.clipboard.writeText(snippet);
+            setCopied(true);
+          }}
+        >
+          {copied ? 'Copied' : 'Copy code'}
+        </button>
+        <a className="button secondary sm" href="/embed/audit" target="_blank" rel="noreferrer">Preview the form</a>
+      </div>
+      {state.error && <p className="error" role="alert" style={{ marginTop: 12 }}>{state.error}</p>}
+      {state.saved && <p className="success" role="status" style={{ marginTop: 12 }}>{state.saved}</p>}
     </section>
   );
 }
