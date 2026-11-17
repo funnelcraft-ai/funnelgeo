@@ -11,6 +11,7 @@ export interface Agency {
   branding: Branding;
   status: 'active' | 'suspended';
   plan_id: string;
+  widget_enabled: boolean;
 }
 
 export interface Branding {
@@ -19,11 +20,14 @@ export interface Branding {
   primaryColor?: string;
   accentColor?: string;
   senderName?: string;
+  /** The button at the end of a shared audit report. */
+  ctaLabel?: string;
+  ctaUrl?: string;
 }
 
 export type Tenant = { kind: 'platform' } | { kind: 'agency'; agency: Agency } | { kind: 'unknown' };
 
-const AGENCY_COLUMNS = 'id, name, slug, custom_domain, domain_status, branding, status, plan_id';
+const AGENCY_COLUMNS = 'id, name, slug, custom_domain, domain_status, branding, status, plan_id, widget_enabled';
 
 /**
  * The hostname the visitor used. The web app forwards it in x-forwarded-host;

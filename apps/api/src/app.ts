@@ -15,6 +15,8 @@ import { trackerRoutes } from './routes/tracker.js';
 import { createEngines, type EngineSet } from './engines.js';
 import { createQueue } from './queue.js';
 import type { CallQueue } from './tracker/runs.js';
+import { auditRoutes } from './routes/audits.js';
+import type { TaskQueue } from './audits/pipeline.js';
 import { isTrustedProxy, requestHost, resolveTenant } from './tenant.js';
 
 export interface AppOptions {
@@ -26,6 +28,8 @@ export interface AppOptions {
   engines?: EngineSet;
   /** Where engine calls are queued for the worker. Replaced in tests. */
   queue?: CallQueue;
+  /** Where site checks and website leads are queued. Replaced in tests. */
+  tasks?: TaskQueue;
 }
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
@@ -92,13 +96,19 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(adminRoutes);
 
   const engines = options.engines ?? createEngines();
-  let queue = options.queue;
-  if (!queue) {
-    const own = createQueue();
-    app.addHook('onClose', () => own.close());
-    queue = own;
-  }
+  let own: ReturnType<typeof createQueue> | null = null;
+  const ownQueue = () => {
+    if (!own) {
+      own = createQueue();
+      const created = own;
+      app.addHook('onClose', () => created.close());
+    }
+    return own;
+  };
+  const queue = options.queue ?? ownQueue();
+  const tasks = options.tasks ?? ('siteAudit' in queue ? (queue as unknown as TaskQueue) : ownQueue());
   await app.register(trackerRoutes, { engines, queue });
+  await app.register(auditRoutes, { engines, queue, tasks, siteMode: config.siteFetch });
 
   return app;
 }

@@ -1,5 +1,7 @@
 import { withSystem } from './db.js';
 import { HttpError } from './http.js';
+import { closeStuckSiteAudits, completeAudit } from './audits/pipeline.js';
+import type { Mailer } from './mailer.js';
 import { createRun, settleRun, type TrackerDeps } from './tracker/runs.js';
 
 const STUCK_AFTER_MINUTES = 120;
@@ -52,7 +54,7 @@ export async function runDueSchedules(deps: TrackerDeps): Promise<{ started: num
  * Closes runs whose calls were lost (for example if the queue's data was
  * wiped): after two hours any call still pending is failed and refunded.
  */
-export async function closeStuckRuns(): Promise<number> {
+export async function closeStuckRuns(mailer?: Mailer): Promise<number> {
   const stuck = await withSystem(async (db) => {
     const { rows } = await db.query<{ id: string }>(
       `SELECT id FROM runs WHERE status IN ('queued', 'running') AND created_at < now() - make_interval(mins => $1)`,
@@ -67,18 +69,22 @@ export async function closeStuckRuns(): Promise<number> {
     }
     return rows;
   });
-  for (const run of stuck) await settleRun(run.id);
+  for (const run of stuck) {
+    await settleRun(run.id);
+    await completeAudit({ runId: run.id }, mailer);
+  }
   return stuck.length;
 }
 
-export function startScheduler(deps: TrackerDeps, onError: (err: unknown) => void, everyMs = 60_000): { stop(): void } {
+export function startScheduler(deps: TrackerDeps & { mailer?: Mailer }, onError: (err: unknown) => void, everyMs = 60_000): { stop(): void } {
   let busy = false;
   const tick = async () => {
     if (busy) return;
     busy = true;
     try {
       await runDueSchedules(deps);
-      await closeStuckRuns();
+      await closeStuckRuns(deps.mailer);
+      await closeStuckSiteAudits(deps.mailer);
     } catch (err) {
       onError(err);
     } finally {

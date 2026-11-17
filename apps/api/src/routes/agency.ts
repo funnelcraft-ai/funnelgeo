@@ -20,12 +20,14 @@ const brandingSchema = z
     primaryColor: hexColor.nullable(),
     accentColor: hexColor.nullable(),
     senderName: z.string().trim().min(1).max(80).nullable(),
+    ctaLabel: z.string().trim().min(1).max(40).nullable(),
+    ctaUrl: httpsUrl.nullable(),
   })
   .partial()
   .strict();
 
 const patchSchema = z
-  .object({ name: z.string().trim().min(2).max(120), branding: brandingSchema })
+  .object({ name: z.string().trim().min(2).max(120), branding: brandingSchema, widgetEnabled: z.boolean() })
   .partial()
   .strict();
 
@@ -41,7 +43,7 @@ const domainSchema = z.object({
 export type CnameResolver = (hostname: string) => Promise<string[]>;
 
 const AGENCY_VIEW = `
-  SELECT a.id, a.name, a.slug, a.custom_domain, a.domain_status, a.domain_checked_at, a.branding, a.status,
+  SELECT a.id, a.name, a.slug, a.custom_domain, a.domain_status, a.domain_checked_at, a.branding, a.status, a.widget_enabled,
          p.key AS plan_key, p.name AS plan_name, p.client_limit, p.prompts_per_client, p.samples_per_prompt, p.audits_per_month
     FROM agencies a JOIN plans p ON p.id = a.plan_id
    WHERE a.id = app_agency_id()`;
@@ -53,6 +55,7 @@ function present(row: any) {
     slug: row.slug,
     status: row.status,
     branding: row.branding,
+    widgetEnabled: row.widget_enabled,
     workspaceUrl: originFor(agencyHost(row)),
     defaultHost: `${row.slug}.${config.platformDomain}`,
     customDomain: row.custom_domain,
@@ -83,6 +86,7 @@ export async function agencyRoutes(app: FastifyInstance, opts: { resolveCname: C
     const body = parse(patchSchema, req.body);
     await withTenant(scope(req), async (db) => {
       if (body.name) await db.query(`UPDATE agencies SET name = $1 WHERE id = app_agency_id()`, [body.name]);
+      if (body.widgetEnabled !== undefined) await db.query(`UPDATE agencies SET widget_enabled = $1 WHERE id = app_agency_id()`, [body.widgetEnabled]);
       if (body.branding) {
         // Merge, then drop keys that were set to null.
         await db.query(`UPDATE agencies SET branding = jsonb_strip_nulls(branding || $1::jsonb) WHERE id = app_agency_id()`, [

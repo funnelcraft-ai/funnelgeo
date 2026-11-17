@@ -133,7 +133,8 @@ function mock(key: EngineKey): EngineAdapter {
         .filter((x) => x.score < x.chance)
         .sort((a, b) => a.score - b.score)
         .map((x) => x.brand);
-      const names = [...named.map((b) => b.name), FILLER[Math.floor(roll('filler') * FILLER.length)]!];
+      // Without context (a request for competitor names) it lists the stand-in businesses.
+      const names = ctx ? [...named.map((b) => b.name), FILLER[Math.floor(roll('filler') * FILLER.length)]!] : [...FILLER];
       const lines = names.map((name, i) => `${i + 1}. ${name}: often recommended for this, with consistently good feedback.`);
       const citations = [
         ...named.filter((b) => b.domain && roll(`cite:${b.name}`) < 0.5).map((b) => `https://www.${b.domain}/`),

@@ -49,7 +49,8 @@ export async function clientRoutes(app: FastifyInstance): Promise<void> {
   // Every role may read; row-level security narrows a client viewer to one client.
   app.get('/v1/clients', { preHandler: requireRole('agency_owner', 'agency_member', 'client_viewer') }, async (req) =>
     withTenant(scope(req), async (db) => {
-      const { rows } = await db.query(`SELECT ${COLUMNS} FROM clients ORDER BY created_at DESC`);
+      // Prospects belong to the audits list until they are converted.
+      const { rows } = await db.query(`SELECT ${COLUMNS} FROM clients WHERE status <> 'prospect' ORDER BY created_at DESC`);
       return { clients: rows.map(present) };
     }),
   );

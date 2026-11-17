@@ -51,13 +51,14 @@ function readableOn(hex: string): string {
 interface Content {
   heading: string;
   lines: string[];
-  button: string;
-  url: string;
-  footnote: string;
+  button?: string;
+  url?: string;
+  footnote?: string;
 }
 
 function render(brand: Brand, content: Content): { text: string; html: string } {
-  const text = [content.heading, '', ...content.lines, '', `${content.button}: ${content.url}`, '', content.footnote, '', brand.name].join('\n');
+  const action = content.button && content.url ? ['', `${content.button}: ${content.url}`] : [];
+  const text = [content.heading, '', ...content.lines, ...action, ...(content.footnote ? ['', content.footnote] : []), '', brand.name].join('\n');
   const header = brand.logoUrl
     ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.name)}" height="32" style="height:32px;max-width:180px;border:0;">`
     : `<span style="font-size:18px;font-weight:700;color:#16181d;">${escapeHtml(brand.name)}</span>`;
@@ -68,8 +69,8 @@ function render(brand: Brand, content: Content): { text: string; html: string } 
 <tr><td style="padding:28px 32px 0;">${header}</td></tr>
 <tr><td style="padding:24px 32px 0;font-size:20px;font-weight:700;line-height:1.3;">${escapeHtml(content.heading)}</td></tr>
 ${content.lines.map((line) => `<tr><td style="padding:12px 32px 0;font-size:15px;line-height:1.6;color:#3d4350;">${escapeHtml(line)}</td></tr>`).join('\n')}
-<tr><td style="padding:24px 32px 0;"><a href="${escapeHtml(content.url)}" style="display:inline-block;padding:12px 22px;border-radius:10px;background:${brand.primaryColor};color:${readableOn(brand.primaryColor)};font-size:15px;font-weight:600;text-decoration:none;">${escapeHtml(content.button)}</a></td></tr>
-<tr><td style="padding:24px 32px 28px;font-size:13px;line-height:1.6;color:#6b7280;">${escapeHtml(content.footnote)}<br>If the button does not work, paste this link into your browser:<br><a href="${escapeHtml(content.url)}" style="color:#6b7280;word-break:break-all;">${escapeHtml(content.url)}</a></td></tr>
+${content.button && content.url ? `<tr><td style="padding:24px 32px 0;"><a href="${escapeHtml(content.url)}" style="display:inline-block;padding:12px 22px;border-radius:10px;background:${brand.primaryColor};color:${readableOn(brand.primaryColor)};font-size:15px;font-weight:600;text-decoration:none;">${escapeHtml(content.button)}</a></td></tr>` : ''}
+<tr><td style="padding:24px 32px 28px;font-size:13px;line-height:1.6;color:#6b7280;">${content.footnote ? escapeHtml(content.footnote) : ''}${content.url ? `${content.footnote ? '<br>' : ''}If the button does not work, paste this link into your browser:<br><a href="${escapeHtml(content.url)}" style="color:#6b7280;word-break:break-all;">${escapeHtml(content.url)}</a>` : ''}</td></tr>
 </table></td></tr></table>
 </body></html>`;
   return { text, html };
@@ -104,6 +105,63 @@ export function resetEmail(brand: Brand, input: { to: string; url: string }): Ma
       button: 'Choose a new password',
       url: input.url,
       footnote: 'This link works once and expires in 1 hour. If you did not ask for it, you can ignore this email; your password stays the same.',
+    }),
+  };
+}
+
+/** To the person who asked for an audit on the agency's website. */
+export function auditReadyEmail(brand: Brand, input: { to: string; business: string; url: string }): Mail {
+  return {
+    to: input.to,
+    fromName: brand.fromName,
+    subject: `Your AI visibility report for ${input.business}`,
+    ...render(brand, {
+      heading: `Your AI visibility report is ready`,
+      lines: [
+        `We asked ChatGPT, Perplexity and Gemini the questions your customers ask, and checked how ready ${input.business}'s website is for AI search.`,
+        'The report shows where you are named, where competitors are named instead, and the first fixes to make.',
+      ],
+      button: 'Open your report',
+      url: input.url,
+      footnote: `Sent by ${brand.name} because you asked for this report.`,
+    }),
+  };
+}
+
+/** To the visitor, when their audit could not be run. */
+export function leadThanksEmail(brand: Brand, input: { to: string; business: string }): Mail {
+  return {
+    to: input.to,
+    fromName: brand.fromName,
+    subject: `Your AI visibility report for ${input.business}`,
+    ...render(brand, {
+      heading: 'Thanks for your request',
+      lines: [`We could not prepare the automatic report for ${input.business} this time. The ${brand.name} team will be in touch with you directly.`],
+      footnote: `Sent by ${brand.name} because you asked for an AI visibility report.`,
+    }),
+  };
+}
+
+/** To the agency's owners, for each lead from the website widget. */
+export function leadAgencyEmail(
+  brand: Brand,
+  input: { to: string; lead: { business: string; domain: string; email: string; name: string | null }; url: string; outcome: 'ready' | 'failed' | 'not_run'; reason?: string },
+): Mail {
+  const who = `${input.lead.name ? `${input.lead.name}, ` : ''}${input.lead.email}`;
+  const outcome = {
+    ready: `The audit is ready and the report link has been emailed to them.`,
+    failed: `The audit could not be completed, so they were told your team will be in touch.`,
+    not_run: `The audit did not run${input.reason ? `: ${input.reason}` : ''}. They were told your team will be in touch.`,
+  }[input.outcome];
+  return {
+    to: input.to,
+    fromName: brand.fromName,
+    subject: `New lead: ${input.lead.business}`,
+    ...render(brand, {
+      heading: `New lead from your website`,
+      lines: [`${input.lead.business} (${input.lead.domain}) asked for an AI visibility report. Contact: ${who}.`, outcome],
+      button: input.outcome === 'ready' ? 'Open the audit' : 'Open leads',
+      url: input.url,
     }),
   };
 }

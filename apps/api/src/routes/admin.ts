@@ -21,7 +21,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const { rows } = await ownerPool.query(
       `SELECT a.id, a.name, a.slug, a.custom_domain, a.domain_status, a.status, a.created_at,
               p.key AS plan_key, p.name AS plan_name,
-              (SELECT count(*)::int FROM clients c WHERE c.agency_id = a.id) AS client_count,
+              (SELECT count(*)::int FROM clients c WHERE c.agency_id = a.id AND c.status <> 'prospect') AS client_count,
               (SELECT count(*)::int FROM users u WHERE u.agency_id = a.id) AS user_count
          FROM agencies a JOIN plans p ON p.id = a.plan_id
         ORDER BY a.created_at DESC`,

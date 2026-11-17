@@ -13,6 +13,12 @@ if (sessionSecret.length < 32) throw new Error('SESSION_SECRET must be at least 
 if (process.env.ENGINE_MODE && !['live', 'mock'].includes(process.env.ENGINE_MODE)) {
   throw new Error("ENGINE_MODE must be 'live' or 'mock'");
 }
+if (process.env.SITE_FETCH && !['live', 'mock'].includes(process.env.SITE_FETCH)) {
+  throw new Error("SITE_FETCH must be 'live' or 'mock'");
+}
+if (process.env.SITE_FETCH === 'mock' && process.env.NODE_ENV === 'production') {
+  throw new Error('SITE_FETCH=mock is not allowed in production: it would present a made-up website check as real');
+}
 if (process.env.ENGINE_MODE === 'mock' && process.env.NODE_ENV === 'production') {
   throw new Error('ENGINE_MODE=mock is not allowed in production: it would present generated answers as real');
 }
@@ -47,6 +53,10 @@ export const config = {
    * refused in production and every run made with it is labelled.
    */
   engineMode: (process.env.ENGINE_MODE ?? 'live') as 'live' | 'mock',
+  /** 'live' fetches prospects' real websites; 'mock' checks a made-up site, for development without internet access. */
+  siteFetch: (process.env.SITE_FETCH ?? 'live') as 'live' | 'mock',
+  /** Requests one visitor may send through the website widget per hour. */
+  widgetPerHour: Number(process.env.WIDGET_PER_HOUR ?? 5),
   engineTimeoutMs: Number(process.env.ENGINE_TIMEOUT_MS ?? 90_000),
   /** Calls per second allowed to each engine, across all workers. */
   engineCallsPerSecond: Number(process.env.ENGINE_CALLS_PER_SECOND ?? 2),

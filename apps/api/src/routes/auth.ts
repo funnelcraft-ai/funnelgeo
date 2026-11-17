@@ -57,7 +57,7 @@ export async function authRoutes(app: FastifyInstance, opts: { mailer: Mailer })
   app.get('/v1/tenant', async (req) => {
     if (req.tenant.kind === 'platform') return { kind: 'platform', name: config.platformName };
     const agency = agencyOf(req);
-    return { kind: 'agency', name: agency.name, branding: agency.branding, suspended: agency.status === 'suspended' };
+    return { kind: 'agency', name: agency.name, branding: agency.branding, suspended: agency.status === 'suspended', widgetEnabled: agency.widget_enabled };
   });
 
   /** Creates an agency and its owner. Only on the platform's own hostname. */

@@ -23,8 +23,20 @@ export interface TrackerDeps {
 export interface RunInput {
   agencyId: string;
   clientId: string;
-  trigger: 'manual' | 'scheduled';
+  trigger: 'manual' | 'scheduled' | 'audit';
   userId: string | null;
+}
+
+export interface RunOptions {
+  /** Times each prompt is asked on each engine; the plan's number when omitted. */
+  samples?: number;
+  /** Audits run against prospects, which ordinary runs refuse. */
+  allowProspect?: boolean;
+  /**
+   * Runs inside the run's own transaction, after the run is created and with
+   * the agency row locked. Throwing cancels the run and reserves nothing.
+   */
+  within?: (db: Db, runId: string) => Promise<void>;
 }
 
 /**
@@ -36,16 +48,19 @@ export interface RunInput {
  * Two runs started at once therefore cannot both spend the same credits.
  * Calls that end up failing are refunded when the run is settled.
  */
-export async function createRun(deps: TrackerDeps, input: RunInput): Promise<{ id: string; totalCalls: number; credits: number }> {
+export async function createRun(deps: TrackerDeps, input: RunInput, options: RunOptions = {}): Promise<{ id: string; totalCalls: number; credits: number }> {
   const created = await withTenant({ agencyId: input.agencyId }, async (db) => {
     const { rows: plans } = await db.query<{ samples_per_prompt: number }>(
       `SELECT p.samples_per_prompt FROM agencies a JOIN plans p ON p.id = a.plan_id WHERE a.id = app_agency_id() FOR UPDATE OF a`,
     );
-    const samples = plans[0]!.samples_per_prompt;
+    const samples = options.samples ?? plans[0]!.samples_per_prompt;
 
     const { rows: clients } = await db.query<{ status: string }>(`SELECT status FROM clients WHERE id = $1`, [input.clientId]);
     if (!clients[0]) throw notFound('Client not found');
-    if (clients[0].status !== 'active') throw new HttpError(409, 'client_paused', 'Activate this client before running it');
+    if (clients[0].status === 'prospect' && !options.allowProspect) {
+      throw new HttpError(409, 'client_prospect', 'Convert this prospect to a client before running it');
+    }
+    if (clients[0].status === 'paused') throw new HttpError(409, 'client_paused', 'Activate this client before running it');
 
     const inFlight = await db.query(`SELECT 1 FROM runs WHERE client_id = $1 AND status IN ('queued', 'running')`, [input.clientId]);
     if (inFlight.rows.length > 0) throw new HttpError(409, 'run_in_progress', 'A run is already in progress for this client');
@@ -89,6 +104,8 @@ export async function createRun(deps: TrackerDeps, input: RunInput): Promise<{ i
        RETURNING id, engine_key`,
       [input.agencyId, input.clientId, runId, prompts.map((p) => p.id), engines.map((e) => e.key), samples],
     );
+
+    if (options.within) await options.within(db, runId);
 
     if (credits > 0) {
       await db.query(
@@ -216,7 +233,12 @@ export async function settleRun(runId: string): Promise<void> {
  * Makes one engine call and stores the answer. Safe to run more than once for
  * the same result: only a still-pending row is ever written.
  */
-export async function processCall(engines: EngineSet, job: CallJob, attempt: { number: number; max: number }): Promise<void> {
+export async function processCall(
+  engines: EngineSet,
+  job: CallJob,
+  attempt: { number: number; max: number },
+  onSettled?: (runId: string) => Promise<void>,
+): Promise<void> {
   const ctx = { agencyId: job.agencyId };
   const row = await withTenant(ctx, async (db) => {
     const { rows } = await db.query(
@@ -266,6 +288,7 @@ export async function processCall(engines: EngineSet, job: CallJob, attempt: { n
     );
   }
   await settleRun(row.run_id);
+  if (onSettled) await onSettled(row.run_id);
 }
 
 /** Re-parses every answered result of a run with the client's current names, aliases and competitors. */
