@@ -189,14 +189,20 @@ export async function storeParse(db: Db, resultId: string): Promise<void> {
  * double-counts or double-refunds. Runs as the platform because refunds add
  * credits, which a tenant request is not allowed to do.
  */
-export async function settleRun(runId: string): Promise<void> {
-  await withSystem(async (db) => {
+/**
+ * Updates a run's counts and closes it once no call is pending. Returns
+ * 'completed' or 'failed' only to the one caller that closed it, so follow-up
+ * work is started exactly once.
+ */
+export async function settleRun(runId: string): Promise<'completed' | 'failed' | null> {
+  return withSystem(async (db) => {
     const { rows: runs } = await db.query(
-      `SELECT id, agency_id, status, credits_reserved, credits_refunded FROM runs WHERE id = $1 FOR UPDATE`,
+      `SELECT r.id, r.agency_id, r.client_id, r.status, r.credits_reserved, r.credits_refunded, c.status AS client_status
+         FROM runs r JOIN clients c ON c.id = r.client_id WHERE r.id = $1 FOR UPDATE OF r`,
       [runId],
     );
     const run = runs[0];
-    if (!run) return;
+    if (!run) return null;
 
     const { rows: counts } = await db.query(
       `SELECT count(*) FILTER (WHERE pr.status = 'ok')::int AS ok,
@@ -210,7 +216,7 @@ export async function settleRun(runId: string): Promise<void> {
     const c = counts[0]!;
     await db.query(`UPDATE runs SET ok_calls = $2, failed_calls = $3 WHERE id = $1`, [runId, c.ok, c.failed]);
 
-    if (c.pending > 0 || !['queued', 'running'].includes(run.status)) return;
+    if (c.pending > 0 || !['queued', 'running'].includes(run.status)) return null;
 
     const owed = Math.min(c.failed_cost, run.credits_reserved) - run.credits_refunded;
     if (owed > 0) {
@@ -226,6 +232,11 @@ export async function settleRun(runId: string): Promise<void> {
         WHERE id = $1`,
       [runId, c.ok > 0 ? 'completed' : 'failed', Math.max(owed, 0), c.failed],
     );
+    // A tracked client's completed run gets a diagnosis follow-up. Prospects get the audit's instead.
+    if (c.ok > 0 && run.client_status !== 'prospect') {
+      await db.query(`INSERT INTO diagnoses (run_id, agency_id, client_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [runId, run.agency_id, run.client_id]);
+    }
+    return c.ok > 0 ? 'completed' : 'failed';
   });
 }
 
@@ -237,7 +248,7 @@ export async function processCall(
   engines: EngineSet,
   job: CallJob,
   attempt: { number: number; max: number },
-  onSettled?: (runId: string) => Promise<void>,
+  onSettled?: (runId: string, finished: 'completed' | 'failed' | null, agencyId: string) => Promise<void>,
 ): Promise<void> {
   const ctx = { agencyId: job.agencyId };
   const row = await withTenant(ctx, async (db) => {
@@ -287,8 +298,8 @@ export async function processCall(
       db.query(`UPDATE prompt_results SET status = 'failed', error = $2, completed_at = now() WHERE id = $1 AND status = 'pending'`, [row.id, message]),
     );
   }
-  await settleRun(row.run_id);
-  if (onSettled) await onSettled(row.run_id);
+  const finished = await settleRun(row.run_id);
+  if (onSettled) await onSettled(row.run_id, finished, job.agencyId);
 }
 
 /** Re-parses every answered result of a run with the client's current names, aliases and competitors. */

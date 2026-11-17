@@ -165,3 +165,60 @@ export function leadAgencyEmail(
     }),
   };
 }
+
+export interface RunSummary {
+  client: string;
+  demo: boolean;
+  answers: number;
+  named: number;
+  previous: { answers: number; named: number } | null;
+  questions: number;
+  lost: number;
+  newlyLost: string[];
+  newlyWon: string[];
+  causes: { question: string; sentence: string }[];
+  gaps: { count: number; top: string[] };
+}
+
+const quoted = (items: string[], max = 3) =>
+  items.slice(0, max).map((q) => `“${q}”`).join(', ') + (items.length > max ? ` and ${items.length - max} more` : '');
+
+/** To the agency after each completed run of a tracked client. */
+export function runSummaryEmail(brand: Brand, input: RunSummary & { to: string; url: string }): Mail {
+  const rate = `${input.named} of ${input.answers}`;
+  const before = input.previous
+    ? (() => {
+        const was = `${input.previous.named} of ${input.previous.answers}`;
+        const now = input.answers ? input.named / input.answers : 0;
+        const then = input.previous.answers ? input.previous.named / input.previous.answers : 0;
+        return now > then ? ` That is up from ${was} last run.` : now < then ? ` That is down from ${was} last run.` : ` The same share as last run (${was}).`;
+      })()
+    : ' This is the first completed run.';
+  const lines = [
+    `${input.client} was named in ${rate} AI answers.${before}`,
+    input.lost === 0
+      ? `No questions were lost to a competitor this run.`
+      : `${input.lost} of ${input.questions} questions were lost to a competitor.`,
+  ];
+  if (input.newlyLost.length) lines.push(`Newly lost: ${quoted(input.newlyLost)}.`);
+  if (input.newlyWon.length) lines.push(`Newly won: ${quoted(input.newlyWon)}.`);
+  for (const c of input.causes.slice(0, 3)) lines.push(`“${c.question}”: ${c.sentence}`);
+  if (input.gaps.count > 0) {
+    lines.push(
+      `${input.gaps.count} ${input.gaps.count === 1 ? 'site cites' : 'sites cite'} competitors in answers where ${input.client} is missing, led by ${input.gaps.top.slice(0, 3).join(', ')}.`,
+    );
+  }
+  if (input.demo) lines.push('These results are demo data: the engines were in mock mode.');
+  return {
+    to: input.to,
+    fromName: brand.fromName,
+    subject: `${input.demo ? '[Demo] ' : ''}${input.client}: named in ${rate} AI answers`,
+    ...render(brand, {
+      heading: `${input.client}: run complete`,
+      lines,
+      button: 'Open the diagnosis',
+      url: input.url,
+      footnote: `Sent after every completed run. Agency owners can change who receives these in Settings.`,
+    }),
+  };
+}

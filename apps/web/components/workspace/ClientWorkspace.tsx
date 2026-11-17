@@ -6,11 +6,12 @@ import type { Run, Tracker, Visibility } from '@/lib/types';
 import { Icon } from '../Icon';
 import { PageHead } from '../Shell';
 import { BrandsTab } from './BrandsTab';
+import { DiagnosisTab } from './DiagnosisTab';
 import { PromptsTab } from './PromptsTab';
 import { RunsTab } from './RunsTab';
 import { VisibilityTab } from './VisibilityTab';
 
-type Tab = 'visibility' | 'prompts' | 'brands' | 'runs';
+type Tab = 'visibility' | 'diagnosis' | 'prompts' | 'brands' | 'runs';
 
 interface Props {
   initial: Tracker;
@@ -28,6 +29,11 @@ export function ClientWorkspace({ initial, initialRun, initialVisibility, canEdi
   const [tracker, setTracker] = useState(initial);
   const [shown, setShown] = useState<{ run: Run | null; visibility: Visibility | null }>({ run: initialRun, visibility: initialVisibility });
   const [tab, setTab] = useState<Tab>('visibility');
+  // Links from emails open a tab directly: /clients/<id>?tab=diagnosis
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab');
+    if (canEdit && (wanted === 'diagnosis' || wanted === 'prompts' || wanted === 'brands' || wanted === 'runs')) setTab(wanted);
+  }, [canEdit]);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
   const clientId = tracker.client.id;
@@ -118,6 +124,7 @@ export function ClientWorkspace({ initial, initialRun, initialVisibility, canEdi
   const tabs: { key: Tab; label: string }[] = canEdit
     ? [
         { key: 'visibility', label: 'Visibility' },
+        { key: 'diagnosis', label: 'Diagnosis' },
         { key: 'prompts', label: `Prompts · ${tracker.prompts.length}` },
         { key: 'brands', label: `Brands · ${tracker.competitors.length + 1}` },
         { key: 'runs', label: 'Runs and schedule' },
@@ -195,6 +202,7 @@ export function ClientWorkspace({ initial, initialRun, initialVisibility, canEdi
             onGoTo={setTab}
           />
         )}
+        {tab === 'diagnosis' && canEdit && <DiagnosisTab tracker={tracker} run={shown.run} onGoTo={setTab} />}
         {tab === 'prompts' && canEdit && <PromptsTab tracker={tracker} act={act} />}
         {tab === 'brands' && canEdit && <BrandsTab tracker={tracker} act={act} />}
         {tab === 'runs' && <RunsTab tracker={tracker} canEdit={canEdit} shownRunId={shown.run?.id ?? null} act={act} onShow={showRun} />}

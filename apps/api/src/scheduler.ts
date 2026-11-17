@@ -1,6 +1,7 @@
 import { withSystem } from './db.js';
 import { HttpError } from './http.js';
-import { closeStuckSiteAudits, completeAudit } from './audits/pipeline.js';
+import { closeStuckSiteAudits, completeAudit, type TaskQueue } from './audits/pipeline.js';
+import { stuckDiagnoses } from './diagnosis/jobs.js';
 import type { Mailer } from './mailer.js';
 import { createRun, settleRun, type TrackerDeps } from './tracker/runs.js';
 
@@ -54,10 +55,10 @@ export async function runDueSchedules(deps: TrackerDeps): Promise<{ started: num
  * Closes runs whose calls were lost (for example if the queue's data was
  * wiped): after two hours any call still pending is failed and refunded.
  */
-export async function closeStuckRuns(mailer?: Mailer): Promise<number> {
+export async function closeStuckRuns(mailer?: Mailer, tasks?: TaskQueue): Promise<number> {
   const stuck = await withSystem(async (db) => {
-    const { rows } = await db.query<{ id: string }>(
-      `SELECT id FROM runs WHERE status IN ('queued', 'running') AND created_at < now() - make_interval(mins => $1)`,
+    const { rows } = await db.query<{ id: string; agency_id: string }>(
+      `SELECT id, agency_id FROM runs WHERE status IN ('queued', 'running') AND created_at < now() - make_interval(mins => $1)`,
       [STUCK_AFTER_MINUTES],
     );
     if (rows.length > 0) {
@@ -70,20 +71,23 @@ export async function closeStuckRuns(mailer?: Mailer): Promise<number> {
     return rows;
   });
   for (const run of stuck) {
-    await settleRun(run.id);
+    const finished = await settleRun(run.id);
     await completeAudit({ runId: run.id }, mailer);
+    if (finished === 'completed' && tasks) await tasks.diagnose(run.id, run.agency_id);
   }
   return stuck.length;
 }
 
-export function startScheduler(deps: TrackerDeps & { mailer?: Mailer }, onError: (err: unknown) => void, everyMs = 60_000): { stop(): void } {
+export function startScheduler(deps: TrackerDeps & { mailer?: Mailer; tasks?: TaskQueue }, onError: (err: unknown) => void, everyMs = 60_000): { stop(): void } {
   let busy = false;
   const tick = async () => {
     if (busy) return;
     busy = true;
     try {
       await runDueSchedules(deps);
-      await closeStuckRuns(deps.mailer);
+      await closeStuckRuns(deps.mailer, deps.tasks);
+      // Diagnosis jobs lost on the way (Redis restarted, enqueue failed) are queued again.
+      if (deps.tasks) for (const d of await stuckDiagnoses()) await deps.tasks.diagnose(d.run_id, d.agency_id);
       await closeStuckSiteAudits(deps.mailer);
     } catch (err) {
       onError(err);

@@ -5,7 +5,7 @@ import { load } from '@/lib/client';
 import { ENGINE_LABEL, type AuditReport, type CheckStatus, type Fix } from '@/lib/types';
 import { Measure } from '../workspace/VisibilityTab';
 
-const CHECK: Record<CheckStatus, { label: string; tone: string }> = {
+export const CHECK: Record<CheckStatus, { label: string; tone: string }> = {
   pass: { label: 'Passed', tone: 'ok' },
   warn: { label: 'Needs work', tone: 'warn' },
   fail: { label: 'Failed', tone: 'bad' },

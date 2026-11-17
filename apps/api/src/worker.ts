@@ -26,7 +26,7 @@ const workers = startWorkers(engines, {
   onError: (err) => log('worker error', err),
   audit: { fetcher, mailer, queue, siteMode: config.siteFetch },
 });
-const scheduler = startScheduler({ engines, queue, mailer }, (err) => log('scheduler error', err));
+const scheduler = startScheduler({ engines, queue, mailer, tasks: queue }, (err) => log('scheduler error', err));
 
 log(`worker started: engines ${[...engines.available.keys()].join(', ') || 'none'} (${engines.mode} mode)`);
 if (engines.available.size === 0) log('no engine has both an API key and a model set yet; add them on the API keys screen');

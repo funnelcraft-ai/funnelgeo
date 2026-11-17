@@ -162,6 +162,10 @@ export function createMockSiteFetcher(): SiteFetcher {
       case '/about':
         return page(200, 'text/html', html('About us', `<p>${words(90)}</p>`));
       default:
+        // The pages the mock engine cites: a generic article naming only the stand-in businesses.
+        if (['bestof.example', 'reviews.example', 'forum.example', 'news.example'].includes(url.hostname.replace(/^www\./, ''))) {
+          return page(200, 'text/html', html('Top picks this year', `<p>${words(160)}</p><h2>Local Favourite</h2><p>${words(40)}</p><h2>City Central</h2><p>${words(40)}</p>`));
+        }
         return page(404, 'text/html', html('Not found', ''));
     }
   };

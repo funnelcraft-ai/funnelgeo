@@ -4,11 +4,13 @@ import { config } from './config.js';
 import { ENGINE_KEYS, type EngineSet } from './engines.js';
 import type { SiteFetcher } from './audits/fetch.js';
 import { completeAudit, processLead, runSiteAudit, type TaskQueue } from './audits/pipeline.js';
+import { runDiagnosis } from './diagnosis/jobs.js';
 import type { Mailer } from './mailer.js';
 import { processCall, type CallJob, type CallQueue } from './tracker/runs.js';
 
 const SITE_QUEUE = 'site-audits';
 const LEAD_QUEUE = 'leads';
+const DIAGNOSIS_QUEUE = 'diagnoses';
 interface TaskJob {
   id: string;
   agencyId: string;
@@ -68,6 +70,9 @@ export function createQueue(options: QueueOptions = {}): CallQueue & TaskQueue &
     async lead(id, agencyId) {
       await taskQueue(LEAD_QUEUE).add('lead', { id, agencyId } satisfies TaskJob, { jobId: id });
     },
+    async diagnose(runId, agencyId) {
+      await taskQueue(DIAGNOSIS_QUEUE).add('diagnose', { id: runId, agencyId } satisfies TaskJob, { jobId: `diagnose-${runId}` });
+    },
     async enqueue(jobs) {
       const byEngine = new Map<string, CallJob[]>();
       for (const job of jobs) byEngine.set(job.engineKey, [...(byEngine.get(job.engineKey) ?? []), job]);
@@ -104,7 +109,17 @@ export function startWorkers(
     const worker = new Worker<CallJob>(
       queueName(engineKey),
       (job) =>
-        processCall(engines, job.data, { number: job.attemptsMade + 1, max: job.opts.attempts ?? 1 }, audit ? (runId) => completeAudit({ runId }, audit.mailer) : undefined),
+        processCall(
+          engines,
+          job.data,
+          { number: job.attemptsMade + 1, max: job.opts.attempts ?? 1 },
+          audit
+            ? async (runId, finished, agencyId) => {
+                await completeAudit({ runId }, audit.mailer);
+                if (finished === 'completed') await audit.queue.diagnose(runId, agencyId).catch((err) => options.onError?.(err));
+              }
+            : undefined,
+        ),
       {
         connection,
         prefix: options.prefix ?? config.queuePrefix,
@@ -126,6 +141,7 @@ export function startWorkers(
       workers.push(worker);
     };
     taskWorker(SITE_QUEUE, (job) => runSiteAudit(audit.fetcher, job.id, job.agencyId, audit.mailer), 3);
+    taskWorker(DIAGNOSIS_QUEUE, (job) => runDiagnosis({ fetcher: audit.fetcher, mailer: audit.mailer, siteMode: audit.siteMode }, job.id, job.agencyId), 2);
     taskWorker(LEAD_QUEUE, (job) => processLead({ engines, queue: audit.queue, tasks: audit.queue, siteMode: audit.siteMode, mailer: audit.mailer }, job.id, job.agencyId), 2);
   }
   return {

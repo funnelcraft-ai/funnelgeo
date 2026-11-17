@@ -14,6 +14,8 @@ import { AUDIT_SAMPLES } from './types.js';
 export interface TaskQueue {
   siteAudit(siteAuditId: string, agencyId: string): Promise<void>;
   lead(leadId: string, agencyId: string): Promise<void>;
+  /** The follow-up to a completed run: page checks, website check, summary email. */
+  diagnose(runId: string, agencyId: string): Promise<void>;
 }
 
 export interface AuditDeps extends TrackerDeps {
@@ -192,7 +194,7 @@ async function agencyContacts(agencyId: string): Promise<{ agency: Agency | null
 }
 
 /** A failed email never fails the job: the report stays available in the app. */
-async function sendAll(mailer: Mailer, mails: Parameters<Mailer['send']>[0][]): Promise<void> {
+export async function sendAll(mailer: Mailer, mails: Parameters<Mailer['send']>[0][]): Promise<void> {
   for (const mail of mails) {
     try {
       await mailer.send(mail);

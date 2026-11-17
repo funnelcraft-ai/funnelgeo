@@ -19,6 +19,7 @@ export function SettingsPanel({ initial }: { initial: Agency }) {
         <BrandingCard agency={agency} onSaved={setAgency} />
         <DomainCard agency={agency} onSaved={setAgency} />
         <AuditSettingsCard agency={agency} onSaved={setAgency} />
+        <RunEmailsCard agency={agency} onSaved={setAgency} />
         <PlanCard agency={agency} />
       </div>
     </>
@@ -273,6 +274,49 @@ function DomainCard({ agency, onSaved }: { agency: Agency; onSaved: (a: Agency) 
       )}
       {state.detail && <p className="muted small" role="status" style={{ margin: '14px 0 0' }}>{state.detail}</p>}
       {state.error && <p className="error" role="alert" style={{ margin: '14px 0 0' }}>{state.error}</p>}
+    </section>
+  );
+}
+
+const RUN_EMAIL_CHOICES: { value: Agency['runEmails']; label: string; hint: string }[] = [
+  { value: 'owners', label: 'Owners', hint: 'People with the owner role.' },
+  { value: 'staff', label: 'Whole team', hint: 'Owners and members. Client viewers never get them.' },
+  { value: 'off', label: 'Nobody', hint: 'Results stay in the app.' },
+];
+
+function RunEmailsCard({ agency, onSaved }: { agency: Agency; onSaved: (a: Agency) => void }) {
+  const [state, setState] = useState<{ error?: string; busy?: boolean }>({});
+  async function choose(runEmails: Agency['runEmails']) {
+    setState({ busy: true });
+    try {
+      const res = await send<{ agency: Agency }>('PATCH', '/v1/agency', { runEmails });
+      onSaved({ ...res.agency, branding: agency.branding });
+      setState({});
+    } catch (err) {
+      setState({ error: (err as Error).message });
+    }
+  }
+  return (
+    <section className="card" id="run-emails">
+      <div className="card-head">
+        <div>
+          <h2>Run summary emails</h2>
+          <p className="muted small">After every completed run: how often the client was named, questions newly lost or won, the main causes and citation gaps.</p>
+        </div>
+      </div>
+      <fieldset className="choice-group" disabled={state.busy}>
+        <legend className="sr-only">Who gets run summary emails</legend>
+        {RUN_EMAIL_CHOICES.map((c) => (
+          <label key={c.value} className={`choice${agency.runEmails === c.value ? ' on' : ''}`}>
+            <input type="radio" name="run-emails" value={c.value} checked={agency.runEmails === c.value} onChange={() => choose(c.value)} />
+            <span>
+              <strong>{c.label}</strong>
+              <span className="muted small">{c.hint}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      {state.error && <p className="error" role="alert">{state.error}</p>}
     </section>
   );
 }

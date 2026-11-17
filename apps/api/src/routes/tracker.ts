@@ -46,7 +46,7 @@ export const presentRun = (row: any) => ({
   finishedAt: row.finished_at,
 });
 
-async function clientOr404(db: Db, clientId: string) {
+export async function clientOr404(db: Db, clientId: string) {
   const { rows } = await db.query(
     `SELECT id, name, domain, brand_aliases, status, schedule, next_run_at FROM clients WHERE id = $1`,
     [clientId],

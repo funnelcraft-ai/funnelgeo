@@ -77,6 +77,39 @@ read per site.
 Not in this milestone: a server-generated PDF file (the browser makes it),
 sentiment, and sending the website form's emails from the agency's own domain.
 
+**Milestone 5, Diagnosis** (complete, tested against its exit check: every
+lost question in a test client has a cause and at least one linked source).
+A Diagnosis tab on each client, for agency staff only:
+
+- A question is *lost* when some competitor was named in more of its answers
+  than the client; *won* when the client was named at least as often as every
+  competitor; *open* when no tracked brand was named
+- One cause per lost question, in one plain sentence, chosen from what the
+  lost answers cite, with the sources linked: the client's robots.txt blocks
+  that engine's crawler; third-party pages name the competitors (and whether
+  each page lists the client); the competitors' own sites are cited; the
+  client's site is cited but the client isn't named; or nothing was cited, in
+  which case it points to where the winner is cited elsewhere in the run.
+  Causes describe what the engines did and never claim to know why
+- After each completed run the worker opens up to 40 cited third-party pages
+  behind lost answers (reused for 14 days) to check which brands they list,
+  through the same guarded fetcher as the website check
+- Citation gaps: third-party sites cited in at least two answers that named a
+  competitor but not the client
+- Source map: every cited site sorted into client's site, competitor's site,
+  list or review article, directory or review site, forum or social, news, or
+  other. Built-in rules plus the agency's own corrections, which apply to all
+  its clients and past runs at once; types are worked out when read, not
+  stored on each citation
+- Website readiness: the nine checks from audits, re-run with a run when the
+  last check is over a week old, or on request
+- A run summary email after each run (owners by default; whole team or nobody
+  in Settings): named rate against the last run, newly lost and won
+  questions, top causes and gaps
+
+Not in this milestone: sentiment, page-level answer-structure scoring (phase
+2) and the action queue the causes will feed (milestone 6).
+
 **Platform API keys** (super admin): one screen for the engine keys and
 models and the email server, with a Test button for each. See
 [API keys screen](#api-keys-screen).
@@ -84,7 +117,7 @@ models and the email server, with a Test button for each. See
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
-Not built yet: diagnosis for clients, action queue, proof, reports.
+Not built yet: action queue, proof, reports, plans and billing.
 
 ## Layout
 

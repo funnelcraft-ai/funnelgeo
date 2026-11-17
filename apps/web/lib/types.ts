@@ -46,6 +46,7 @@ export interface Agency {
   slug: string;
   branding: Branding;
   widgetEnabled: boolean;
+  runEmails: 'owners' | 'staff' | 'off';
   workspaceUrl: string;
   defaultHost: string;
   customDomain: string | null;
@@ -292,4 +293,70 @@ export interface SettingTestResult {
   message: string;
   sample?: string;
   latencyMs?: number;
+}
+
+// Diagnosis ------------------------------------------------------------------------
+
+export type SourceType = 'own' | 'competitor' | 'list_review' | 'forum' | 'directory' | 'news' | 'other';
+export type PageCheck = 'not_listed' | 'listed' | 'unchecked' | 'failed';
+
+export interface DiagnosisSource {
+  url: string;
+  domain: string;
+  type: SourceType | 'robots';
+  typeLabel: string;
+  answers: number;
+  title: string | null;
+  check: PageCheck | null;
+  elsewhere: boolean;
+}
+
+export interface DiagnosisPrompt {
+  id: string;
+  text: string;
+  intent: string;
+  priority: boolean;
+  status: 'won' | 'lost' | 'open' | 'no_answers';
+  answers: number;
+  clientAnswers: number;
+  leader: { name: string; answers: number } | null;
+  engines: { key: string; label: string; answers: number; client: number; lost: boolean }[];
+  cause: { kind: string; sentence: string; sources: DiagnosisSource[]; note: string | null } | null;
+}
+
+export interface Diagnosis {
+  runId: string;
+  status: 'pending' | 'done';
+  pagesChecked: number;
+  totals: { questions: number; lost: number; won: number; open: number; gaps: number; domains: number; answers: number; uncitedAnswers: number };
+  prompts: DiagnosisPrompt[];
+  gaps: {
+    domain: string;
+    type: SourceType;
+    typeLabel: string;
+    answers: number;
+    questions: number;
+    competitors: string[];
+    urls: { url: string; title: string | null; check: PageCheck }[];
+    pages: { checked: number; listsClient: number; failed: number };
+  }[];
+  sources: {
+    byType: { type: SourceType; label: string; domains: number; answers: number }[];
+    domains: { domain: string; type: SourceType; typeLabel: string; corrected: boolean; competitor: string | null; answers: number; withClient: number; competitorOnly: number; topUrl: string }[];
+  };
+  site: {
+    id: string;
+    status: 'pending' | 'done' | 'failed';
+    mode: 'live' | 'mock';
+    checkedAt: string;
+    error: string | null;
+    findings: AuditReport['site']['findings'];
+    passed: number;
+  } | null;
+}
+
+export interface DiagnosisView {
+  run: Run | null;
+  diagnosis: Diagnosis | null;
+  sourceTypes: { type: SourceType; label: string }[];
 }
