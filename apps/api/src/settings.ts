@@ -11,7 +11,7 @@ import { ownerPool } from './db.js';
  * restart.
  */
 
-export type SettingGroup = 'chatgpt' | 'perplexity' | 'gemini' | 'writer' | 'email';
+export type SettingGroup = 'chatgpt' | 'perplexity' | 'gemini' | 'writer' | 'email' | 'billing';
 
 export interface SettingSpec {
   key: string;
@@ -50,6 +50,15 @@ export const SETTINGS: SettingSpec[] = [
   },
   { key: 'WRITER_MODEL', group: 'writer', label: 'Writing model', secret: false, help: 'Optional for OpenAI and Gemini: without it, the engine model above is used. Required for Claude.', validate: model },
   { key: 'ANTHROPIC_API_KEY', group: 'writer', label: 'Claude API key', secret: true, help: 'Only needed when Claude is the provider. From the Anthropic Console.', validate: apiKey },
+  {
+    // Set on the Costs screen, not the API keys screen.
+    key: 'USD_INR',
+    group: 'billing',
+    label: 'Rupees per US dollar',
+    secret: false,
+    help: 'Used to turn plan prices in rupees into dollars, to compare with costs.',
+    validate: (v) => (/^\d{1,4}(\.\d{1,4})?$/.test(v) && Number(v) > 0 ? null : 'Enter a number, such as 84.5'),
+  },
   {
     key: 'SMTP_URL',
     group: 'email',

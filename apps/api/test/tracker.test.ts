@@ -323,7 +323,7 @@ describe('tracking runs', () => {
     await ownerPool.query(`INSERT INTO credit_ledger (agency_id, delta, reason) VALUES ($1, $2, 'adjustment')`, [b.agencyId, -(5000 - 27 - 20)]);
     const broke = await call('POST', `/v1/clients/${c.id}/runs`, b);
     assert.deepEqual([broke.status, broke.json.error.code], [402, 'insufficient_credits']);
-    assert.equal(broke.json.error.message, 'This run needs 27 credits and 20 are left this month.');
+    assert.equal(broke.json.error.message, 'This run needs 27 credits and 20 are left this month. An owner can turn on top-up on the Usage page to go past the allowance.');
     assert.equal(await remaining(b), 20, 'a refused run reserves nothing');
 
     const empty = (await call('POST', '/v1/clients', { ...b, body: { name: 'No Prompts Co' } })).json.client;
@@ -539,7 +539,7 @@ describe('weekly schedule and housekeeping', () => {
     await ownerPool.query(`INSERT INTO credit_ledger (agency_id, delta, reason) VALUES ($1, $2, 'adjustment')`, [a.agencyId, -(await remaining(a)) + 5]);
     assert.deepEqual(await runDueSchedules(deps()), { started: 0, skipped: 1 });
     const latest = (await call('GET', `/v1/clients/${client.id}/tracker`, a)).json.runs[0];
-    assert.deepEqual([latest.status, latest.note], ['skipped', 'This run needs 18 credits and 5 are left this month.']);
+    assert.deepEqual([latest.status, latest.note], ['skipped', 'This run needs 18 credits and 5 are left this month. An owner can turn on top-up on the Usage page to go past the allowance.']);
     assert.equal(await remaining(a), 5);
     assert.deepEqual(await runDueSchedules(deps()), { started: 0, skipped: 0 }, 'it is not retried every minute');
   });

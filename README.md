@@ -203,6 +203,34 @@ branding only):
 - SQL dates are kept as 'YYYY-MM-DD' text throughout the API, so periods don't
   shift a day with the server's time zone
 
+**Milestone 9, Plans and super admin** (complete, tested against its exit
+check: recorded costs for a test month match the providers' invoices within
+5%, and a larger gap is flagged):
+
+- Every engine call, AI writing call (briefs, drafts, report summaries),
+  competitor suggestion, API-key test and crawled page writes one row to
+  `usage_events`: provider, model, tokens, calls and, where the provider
+  reports it (Perplexity), its own dollar cost. Recording never blocks the work
+- Cost = the provider's reported cost, else tokens × the model's price plus a
+  per-call price (search and grounding fees). Prices are typed in on the Costs
+  page from each provider's price page; `*` covers a provider's other models.
+  Calls with no price are counted and flagged, never treated as free
+- Costs page (super admin): each provider's recorded cost against the invoice
+  you type in for the month, marked "Within 5%" only when every call is priced
+  and the gap is 5% or less; cost, cost per credit, plan price and margin per
+  agency; prices; the rupee rate for INR plans (`USD_INR`)
+- Plans page (super admin): create and edit plans (credits, clients, questions,
+  samples, audits, price). Changes apply at once. A plan in use can't be retired
+- Usage page (agency staff): credits used against the allowance, by kind, by
+  client and by day, with a forecast (weekly runs still to come at today's
+  questions, plus everything else at this month's pace). Owners are emailed
+  once at 80% and once at 100% each month
+- At 100% runs, fixes and summaries stop with a clear message, unless an owner
+  turns on top-up with a monthly cap. Top-up credits show as overage on the
+  Costs page. Charging agencies for plans and overage (payments, GST invoices)
+  is not built yet
+- Cost data lives in tables the agency database role can't read at all
+
 **Platform API keys** (super admin): one screen for the engine keys and
 models and the email server, with a Test button for each. See
 [API keys screen](#api-keys-screen).
@@ -210,7 +238,8 @@ models and the email server, with a Test button for each. See
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
-Not built yet: plans, billing and super admin reporting (milestone 9).
+Not built yet: charging agencies (payments, invoices, GST); real plan prices
+wait for the cost spike.
 
 ## Layout
 
@@ -255,7 +284,7 @@ CREATE DATABASE geo_test OWNER geo_owner;   -- for npm test
 ## Tests
 
 ```bash
-npm test          # 71 integration tests; needs Postgres (geo_test) and Redis
+npm test          # 162 integration tests; needs Postgres (geo_test) and Redis
 npm run typecheck
 npm run build
 ```
@@ -337,6 +366,16 @@ PATCH /v1/admin/engines/:key      { "creditCost": 2 }
 PATCH /v1/admin/plans/:key        { "monthlyCredits": 8000 }
 POST  /v1/admin/agencies/:id/credits { "amount": 1000, "note": "..." }
 ```
+
+Plans are also edited on the Plans page. Monthly use, top-up and the 80% and
+100% emails are on each agency's Usage page.
+
+**Checking costs each month**: after the month closes, open Costs, pick the
+month, and type in each provider's invoice total in dollars. If a provider is
+not "Within 5%", the usual causes are a missing or outdated price (check the
+Prices card for unpriced models), a fee the price doesn't cover (add it as the
+per-call price), or usage outside FunnelGeo on the same API key. Use a key for
+FunnelGeo alone so the invoice and the records describe the same calls.
 
 ## Website checks and safety
 

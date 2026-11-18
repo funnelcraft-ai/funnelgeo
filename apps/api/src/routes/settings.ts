@@ -6,6 +6,7 @@ import { brandFor } from '../emails.js';
 import { liveEngine, type EngineKey } from '../engines.js';
 import { HttpError, notFound, parse, requireRole } from '../http.js';
 import type { Mailer } from '../mailer.js';
+import { ENGINE_PROVIDER, recordUsage } from '../billing/usage.js';
 import { createLiveWriter, resolveWriter, WRITER_LABEL } from '../writer.js';
 import { SETTINGS, encrypt, encryptionReady, refreshSettings, settingState, specFor, type SettingGroup } from '../settings.js';
 
@@ -150,6 +151,7 @@ export async function settingsRoutes(app: FastifyInstance, opts: { mailer: Maile
         const started = performance.now();
         try {
           const written = await createLiveWriter().write({ system: 'You are a concise assistant.', prompt: 'In one short sentence, what is a content brief?', maxTokens: 120 }, AbortSignal.timeout(TEST_TIMEOUT_MS));
+          await recordUsage({ agencyId: null, kind: 'test_call', provider: resolved.provider, model: written.model, tokensIn: written.tokensIn, tokensOut: written.tokensOut });
           return {
             ok: true,
             message: `${WRITER_LABEL[resolved.provider]} (${written.model}) answered in ${((performance.now() - started) / 1000).toFixed(1)} s.`,
@@ -166,6 +168,7 @@ export async function settingsRoutes(app: FastifyInstance, opts: { mailer: Maile
       const started = performance.now();
       try {
         const answer = await engine.ask('In one short sentence, what is a search engine?', AbortSignal.timeout(TEST_TIMEOUT_MS));
+        await recordUsage({ agencyId: null, kind: 'test_call', provider: ENGINE_PROVIDER[target] ?? target, model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, providerCostUsd: answer.costUsd });
         if (!answer.text.trim()) return { ok: false, message: 'The engine answered, but with no text.' };
         return {
           ok: true,

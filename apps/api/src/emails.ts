@@ -263,3 +263,28 @@ export function reportsReadyEmail(brand: Brand, input: { to: string; period: str
     }),
   };
 }
+
+/** To the agency's owners: 80% or 100% of this month's credits used. */
+export function usageAlertEmail(brand: Brand, input: { to: string; level: 80 | 100; used: number; available: number; topup: number | null; url: string }): Mail {
+  const full = input.level === 100;
+  const lines = full
+    ? input.topup !== null
+      ? [
+          `You have used this month’s ${input.available.toLocaleString()} credits. Top-up is on, so work carries on for up to ${input.topup.toLocaleString()} more credits, billed as overage.`,
+          'You can change or turn off top-up on the Usage page.',
+        ]
+      : [
+          `You have used all ${input.available.toLocaleString()} of this month’s credits. Runs, audits and AI writing are paused until the 1st.`,
+          'To keep going this month, turn on top-up on the Usage page.',
+        ]
+    : [
+        `You have used ${input.used.toLocaleString()} of this month’s ${input.available.toLocaleString()} credits (${Math.round((input.used / input.available) * 100)}%).`,
+        'The Usage page shows what is using them and a forecast for the rest of the month.',
+      ];
+  return {
+    to: input.to,
+    fromName: brand.fromName,
+    subject: full ? 'This month’s credits are used up' : '80% of this month’s credits used',
+    ...render(brand, { heading: full ? 'Credits used up' : 'Credits running low', lines, button: 'See usage', url: input.url }),
+  };
+}

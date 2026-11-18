@@ -5,6 +5,7 @@ import { stuckDiagnoses } from './diagnosis/jobs.js';
 import { closeStuckAssets } from './actions/service.js';
 import { pruneVisits } from './proof/collector.js';
 import { draftDueReports } from './reports/service.js';
+import { checkUsageAlerts } from './billing/costs.js';
 import { createWriter } from './writer.js';
 import type { Mailer } from './mailer.js';
 import { createRun, settleRun, type TrackerDeps } from './tracker/runs.js';
@@ -100,6 +101,7 @@ export function startScheduler(deps: TrackerDeps & { mailer?: Mailer; tasks?: Ta
       if (Date.now() - lastPrune > 3_600_000) {
         lastPrune = Date.now();
         await pruneVisits();
+        if (deps.mailer) await checkUsageAlerts(deps.mailer);
         if (deps.tasks && deps.mailer) {
           const writer = createWriter();
           await draftDueReports(new Date(), { tasks: deps.tasks, mailer: deps.mailer, writerReady: writer.missing() === null });

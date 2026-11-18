@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { ENGINE_PROVIDER, recordUsage } from '../billing/usage.js';
 import { withSystem, withTenant, type Db } from '../db.js';
 import type { EngineSet, MockContext } from '../engines.js';
 import { HttpError, notFound } from '../http.js';
@@ -81,12 +82,12 @@ export async function createRun(deps: TrackerDeps, input: RunInput, options: Run
 
     const totalCalls = prompts.length * engines.length * samples;
     const credits = prompts.length * samples * engines.reduce((sum, e) => sum + e.credit_cost, 0);
-    const { rows: balance } = await db.query<{ remaining: number }>(`SELECT credits_remaining(app_agency_id()) AS remaining`);
+    const { rows: balance } = await db.query<{ remaining: number }>(`SELECT credits_spendable(app_agency_id()) AS remaining`);
     if (credits > balance[0]!.remaining) {
       throw new HttpError(
         402,
         'insufficient_credits',
-        `This run needs ${credits} credits and ${Math.max(balance[0]!.remaining, 0)} are left this month.`,
+        `This run needs ${credits} credits and ${Math.max(balance[0]!.remaining, 0)} are left this month. An owner can turn on top-up on the Usage page to go past the allowance.`,
       );
     }
 
@@ -263,7 +264,7 @@ export async function processCall(
       rows[0].client_id,
     ]);
     return { ...rows[0], competitors } as {
-      id: string; run_id: string; engine_key: string; sample_no: number; text: string; name: string; domain: string | null;
+      id: string; run_id: string; client_id: string; engine_key: string; sample_no: number; text: string; name: string; domain: string | null;
       competitors: { name: string; domain: string | null }[];
     };
   });
@@ -277,6 +278,18 @@ export async function processCall(
       engines.mode === 'mock' ? { brands: [{ name: row.name, domain: row.domain }, ...row.competitors], sampleNo: row.sample_no } : undefined;
     const started = performance.now();
     const answer = await adapter.ask(row.text, AbortSignal.timeout(config.engineTimeoutMs), mock);
+    // Recorded before anything else: an empty answer is still billed by the provider.
+    await recordUsage({
+      agencyId: job.agencyId,
+      clientId: row.client_id,
+      kind: 'engine_call',
+      provider: engines.mode === 'mock' ? 'mock' : (ENGINE_PROVIDER[row.engine_key] ?? row.engine_key),
+      model: answer.model,
+      tokensIn: answer.tokensIn,
+      tokensOut: answer.tokensOut,
+      providerCostUsd: answer.costUsd,
+      refId: row.id,
+    });
     if (!answer.text.trim()) throw new Error('The engine returned an empty answer');
     const latency = Math.round(performance.now() - started);
 

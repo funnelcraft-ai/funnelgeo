@@ -502,3 +502,65 @@ export interface MonthlyReport {
 }
 
 export type MonthlyReportListItem = Omit<MonthlyReport, 'data'> & { headline: { named: number; answers: number; runs: number } };
+
+// Plans, usage and costs ------------------------------------------------------
+
+export interface Usage {
+  plan: string;
+  allowance: number;
+  granted: number;
+  available: number;
+  used: number;
+  remaining: number;
+  spendable: number;
+  percentUsed: number;
+  topup: { enabled: boolean; limit: number; inUse: number };
+  byKind: { kind: 'scheduled_runs' | 'manual_runs' | 'audits' | 'assets' | 'summaries'; credits: number }[];
+  byClient: { name: string; credits: number }[];
+  daily: { day: string; credits: number }[];
+  forecast: { credits: number; scheduledAhead: number; otherAhead: number; daysLeft: number; overBy: number };
+}
+
+export interface PlanDetail {
+  key: string;
+  name: string;
+  monthlyCredits: number;
+  clientLimit: number;
+  promptsPerClient: number;
+  samplesPerPrompt: number;
+  auditsPerMonth: number;
+  price: { amount: number; currency: 'INR' | 'USD' } | null;
+  active: boolean;
+  agencies: number;
+}
+
+export interface CostReport {
+  month: string;
+  fx: { usdInr: number | null };
+  agencies: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    plan: string;
+    allowance: number;
+    granted: number;
+    used: number;
+    overage: number;
+    topupEnabled: boolean;
+    engineCalls: number;
+    costUsd: number;
+    unpriced: number;
+    costPerCredit: number | null;
+    price: { amount: number; currency: string } | null;
+    revenueUsd: number | null;
+    marginUsd: number | null;
+    marginPct: number | null;
+  }[];
+  platformCostUsd: number;
+  platformUnpriced: number;
+  totals: { costUsd: number; revenueUsd: number | null; used: number; unpriced: number };
+  providers: { provider: string; costUsd: number; events: number; unpriced: number; invoiceUsd: number | null; note: string | null; difference: number | null; matches: boolean | null }[];
+  models: { provider: string; model: string; events: number; requests: number; tokensIn: number; tokensOut: number; costUsd: number; unpriced: boolean; providerReported: boolean }[];
+  prices: { provider: string; model: string; inputPerMTok: number; outputPerMTok: number; perRequest: number; updatedAt: string }[];
+}

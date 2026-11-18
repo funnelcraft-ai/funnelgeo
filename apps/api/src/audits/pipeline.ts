@@ -4,6 +4,7 @@ import { auditReadyEmail, brandFor, leadAgencyEmail, leadThanksEmail } from '../
 import { HttpError } from '../http.js';
 import type { Mailer } from '../mailer.js';
 import { newToken } from '../security.js';
+import { countingFetcher, recordPages } from '../billing/usage.js';
 import type { Agency } from '../tenant.js';
 import { createRun, type TrackerDeps } from '../tracker/runs.js';
 import type { SiteFetcher } from './fetch.js';
@@ -93,12 +94,13 @@ export async function startAudit(
 export async function runSiteAudit(fetcher: SiteFetcher, siteAuditId: string, agencyId: string, mailer?: Mailer): Promise<void> {
   const ctx = { agencyId };
   const row = await withTenant(ctx, async (db) => {
-    const { rows } = await db.query<{ domain: string }>(`SELECT domain FROM site_audits WHERE id = $1 AND status = 'pending'`, [siteAuditId]);
+    const { rows } = await db.query<{ domain: string; client_id: string | null }>(`SELECT domain, client_id FROM site_audits WHERE id = $1 AND status = 'pending'`, [siteAuditId]);
     return rows[0];
   });
   if (!row) return;
+  const counted = countingFetcher(fetcher);
   try {
-    const findings = await checkSite(row.domain, fetcher);
+    const findings = await checkSite(row.domain, counted.fetcher);
     await withTenant(ctx, (db) =>
       db.query(
         `UPDATE site_audits SET status = 'done', findings = $2::jsonb, pages_checked = $3, finished_at = now() WHERE id = $1 AND status = 'pending'`,
@@ -111,6 +113,7 @@ export async function runSiteAudit(fetcher: SiteFetcher, siteAuditId: string, ag
       db.query(`UPDATE site_audits SET status = 'failed', error = $2, finished_at = now() WHERE id = $1 AND status = 'pending'`, [siteAuditId, message]),
     );
   }
+  await recordPages(agencyId, row.client_id, counted.count(), siteAuditId);
   await completeAudit({ siteAuditId }, mailer);
 }
 
@@ -288,12 +291,12 @@ export async function processLead(deps: AuditDeps & { mailer: Mailer }, leadId: 
   });
   if (existing) return notRun('This website already has an audit or is one of your clients', existing);
 
-  const competitors = await suggestCompetitors(deps.engines, {
-    business: lead.business_name,
-    domain: lead.domain,
-    category: lead.category,
-    location: lead.location,
-  });
+  const competitors = await suggestCompetitors(
+    deps.engines,
+    { business: lead.business_name, domain: lead.domain, category: lead.category, location: lead.location },
+    3,
+    { agencyId },
+  );
   const clientId = await createProspect(agencyId, {
     business: lead.business_name,
     domain: lead.domain,

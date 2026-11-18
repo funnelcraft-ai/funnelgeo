@@ -1,3 +1,4 @@
+import { ENGINE_PROVIDER, recordUsage } from '../billing/usage.js';
 import type { EngineSet } from '../engines.js';
 import type { Intent } from './types.js';
 
@@ -63,6 +64,7 @@ export async function suggestCompetitors(
   engines: EngineSet,
   input: { business: string; domain: string; category: string; location: string | null },
   limit = 3,
+  usage: { agencyId: string; clientId?: string | null } | null = null,
 ): Promise<string[]> {
   const engine = engines.available.get('perplexity') ?? [...engines.available.values()][0];
   if (!engine) return [];
@@ -72,6 +74,16 @@ export async function suggestCompetitors(
     'Reply with only the business names, one per line, with no other text.';
   try {
     const answer = await engine.ask(prompt, AbortSignal.timeout(SUGGEST_TIMEOUT_MS));
+    await recordUsage({
+      agencyId: usage?.agencyId ?? null,
+      clientId: usage?.clientId ?? null,
+      kind: 'suggestion_call',
+      provider: engines.mode === 'mock' ? 'mock' : (ENGINE_PROVIDER[engine.key] ?? engine.key),
+      model: answer.model,
+      tokensIn: answer.tokensIn,
+      tokensOut: answer.tokensOut,
+      providerCostUsd: answer.costUsd,
+    });
     const domainName = input.domain.split('.')[0] ?? '';
     return parseNameList(answer.text, [input.business, domainName]).slice(0, limit);
   } catch {

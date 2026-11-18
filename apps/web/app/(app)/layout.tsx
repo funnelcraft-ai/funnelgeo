@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const { role, name } = session.user;
   const isStaff = role === 'agency_owner' || role === 'agency_member';
   const items: NavItem[] = [{ href: '/clients', label: 'Overview', icon: 'grid' }];
-  if (isStaff) items.push({ href: '/audits', label: 'Audits', icon: 'target' }, { href: '/team', label: 'Team', icon: 'users' });
+  if (isStaff) items.push({ href: '/audits', label: 'Audits', icon: 'target' }, { href: '/team', label: 'Team', icon: 'users' }, { href: '/usage', label: 'Usage', icon: 'gauge' });
   if (role === 'agency_owner') items.push({ href: '/settings', label: 'Settings', icon: 'sliders' });
 
   return (

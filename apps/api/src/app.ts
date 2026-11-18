@@ -21,6 +21,7 @@ import { diagnosisRoutes } from './routes/diagnosis.js';
 import { actionRoutes } from './routes/actions.js';
 import { proofRoutes } from './routes/proof.js';
 import { reportRoutes } from './routes/reports.js';
+import { billingRoutes } from './routes/billing.js';
 import { createWriter, type Writer } from './writer.js';
 import { refreshSettings, startSettingsRefresh } from './settings.js';
 import type { TaskQueue } from './audits/pipeline.js';
@@ -130,6 +131,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(actionRoutes, { tasks, writer });
   await app.register(proofRoutes);
   await app.register(reportRoutes, { tasks, writer });
+  await app.register(billingRoutes);
 
   return app;
 }

@@ -9,6 +9,7 @@ import type { Agency } from '../tenant.js';
 import { firstIndex } from '../tracker/parse.js';
 import { diagnosisFor } from './diagnose.js';
 import { refreshActions } from '../actions/rules.js';
+import { countingFetcher, recordPages } from '../billing/usage.js';
 import { classifySource, type ThirdPartyType } from './sources.js';
 
 /** Most pages opened after one run. Checked pages are reused for 14 days, so later runs add few. */
@@ -158,8 +159,9 @@ export async function runDiagnosis(deps: DiagnosisDeps, runId: string, agencyId:
       return { urls: await pagesToCheck(db, runId, clientId), brands };
     });
     let checked = 0;
+    const counted = countingFetcher(deps.fetcher);
     await mapLimit(urls, PAGE_CONCURRENCY, async (url) => {
-      const result = await checkPage(deps.fetcher, url, brands);
+      const result = await checkPage(counted.fetcher, url, brands);
       checked++;
       await withTenant(ctx, (db) =>
         db.query(
@@ -171,6 +173,8 @@ export async function runDiagnosis(deps: DiagnosisDeps, runId: string, agencyId:
         ),
       );
     });
+    await recordPages(agencyId, clientId, counted.count(), runId);
+
     // 3. Suggested actions, from the latest run only: an older run's diagnosis must not undo a newer one's.
     await withTenant(ctx, async (db) => {
       const { rows: latest } = await db.query(`SELECT id FROM runs WHERE client_id = $1 AND status = 'completed' ORDER BY finished_at DESC LIMIT 1`, [clientId]);

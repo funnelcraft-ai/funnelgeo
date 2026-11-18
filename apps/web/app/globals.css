@@ -158,7 +158,7 @@ li.done { color: var(--muted); }
 label { display: block; font-size: 13.5px; font-weight: 500; color: var(--ink-2); margin-bottom: 6px; }
 .field { margin-bottom: 16px; }
 .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
-input[type='text'], input[type='email'], input[type='password'], input[type='url'], input[type='search'], select {
+input[type='text'], input[type='email'], input[type='password'], input[type='url'], input[type='search'], input[type='number'], input[type='month'], select {
   width: 100%; height: 44px; padding: 0 14px; font: inherit; color: var(--ink);
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
 }
@@ -663,3 +663,40 @@ td.row-actions .button + .button { margin-left: 6px; }
   .r-section h2 { break-after: avoid; }
 }
 .r-sov-value { white-space: nowrap; }
+
+/* Usage, plans and costs ----------------------------------------------------- */
+.notice.banner { margin: 0 0 20px; font-weight: 500; }
+.notice.banner.warn, .notice.warn { background: var(--warn-wash); border-color: transparent; color: var(--warn); }
+.notice.banner.bad { background: var(--danger-wash); border-color: transparent; color: var(--danger); }
+.notice.banner.ok { background: var(--ok-wash); border-color: transparent; color: var(--ok); }
+.figure .pill { align-self: center; margin-left: 4px; }
+.usage-bar { position: relative; height: 14px; margin-top: 22px; overflow: visible; }
+.usage-bar > span { border-radius: 6px; }
+.usage-bar > span.warn { background: var(--warn); }
+.usage-bar > span.bad { background: var(--danger); }
+.usage-bar > i { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--line-strong); border-radius: 1px; }
+.mini-stats strong.over, td .neg { color: var(--danger); }
+.measures.tight { margin-top: 0; }
+.days { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; align-items: flex-end; overflow-x: auto; }
+.days li { flex: 1; min-width: 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.days-bar { width: 100%; height: 120px; display: flex; align-items: flex-end; background: var(--wash); border-radius: 6px; overflow: hidden; }
+.days-bar span { display: block; width: 100%; background: var(--primary); min-height: 0; }
+.days-label { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.card-head.padded { padding: 22px 24px 0; }
+.card.flush .card-head.padded { margin-bottom: 14px; }
+.row.tight { gap: 8px; align-items: center; flex-wrap: nowrap; }
+.plan-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 18px; }
+tr.retired td { color: var(--muted); }
+table.compact th, table.compact td { padding: 10px 10px 10px 0; font-size: 13.5px; }
+.price-form { display: grid; grid-template-columns: 1.3fr 1.4fr 1fr 1fr 1fr auto; gap: 8px; align-items: center; }
+.price-form input, .price-form select { height: 38px; font-size: 13.5px; }
+.grid-2 + .card, .card + .grid-2, .grid-3 + .card, .card + .grid-main { margin-top: 20px; }
+.grid-main.align-start { align-items: start; }
+@media screen and (max-width: 900px) {
+  .price-form { grid-template-columns: 1fr 1fr; }
+}
+@media screen and (max-width: 720px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  td[data-label] { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 12.5px; flex: none; }
+}

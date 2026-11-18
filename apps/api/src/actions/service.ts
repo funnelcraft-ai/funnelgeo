@@ -2,7 +2,8 @@ import type { SiteFetcher } from '../audits/fetch.js';
 import type { SiteFindings } from '../audits/site.js';
 import { withSystem, withTenant, type Db } from '../db.js';
 import { HttpError, notFound } from '../http.js';
-import type { Writer } from '../writer.js';
+import { resolveWriter, type Writer } from '../writer.js';
+import { countingFetcher, recordPages, recordUsage } from '../billing/usage.js';
 import { ASSET_CREDITS, ASSET_LABEL, generate, type GenContext } from './generators.js';
 import { generatorsFor, type ActionDetails, type ActionType, type AssetKind } from './rules.js';
 
@@ -34,7 +35,7 @@ export async function requestAsset(db: Db, input: { actionId: string; kind: Asse
   const credits = ASSET_CREDITS[input.kind];
   if (credits > 0) {
     await db.query(`SELECT 1 FROM agencies WHERE id = app_agency_id() FOR UPDATE`);
-    const { rows: balance } = await db.query<{ remaining: number }>(`SELECT credits_remaining(app_agency_id()) AS remaining`);
+    const { rows: balance } = await db.query<{ remaining: number }>(`SELECT credits_spendable(app_agency_id()) AS remaining`);
     if (credits > balance[0]!.remaining) {
       throw new HttpError(402, 'insufficient_credits', `This needs ${credits} ${credits === 1 ? 'credit' : 'credits'} and ${Math.max(balance[0]!.remaining, 0)} are left this month.`);
     }
@@ -91,13 +92,31 @@ async function contextFor(db: Db, actionId: string, kind: AssetKind): Promise<Ge
 export async function runGeneration(deps: GenerationDeps, assetId: string, agencyId: string): Promise<void> {
   const ctx = { agencyId };
   const job = await withTenant(ctx, async (db) => {
-    const { rows } = await db.query(`SELECT id, action_id, kind, credits FROM assets WHERE id = $1 AND status = 'pending'`, [assetId]);
+    const { rows } = await db.query(`SELECT id, action_id, client_id, kind, credits FROM assets WHERE id = $1 AND status = 'pending'`, [assetId]);
     if (!rows[0]) return null;
-    return { asset: rows[0] as { id: string; action_id: string; kind: AssetKind; credits: number }, context: await contextFor(db, rows[0].action_id, rows[0].kind) };
+    return {
+      asset: rows[0] as { id: string; action_id: string; kind: AssetKind; credits: number },
+      clientId: rows[0].client_id as string,
+      context: await contextFor(db, rows[0].action_id, rows[0].kind),
+    };
   });
   if (!job) return;
   try {
-    const out = await generate(job.asset.kind, job.context, deps.writer, deps.fetcher, AbortSignal.timeout(GENERATION_TIMEOUT_MS));
+    const counted = countingFetcher(deps.fetcher);
+    const out = await generate(job.asset.kind, job.context, deps.writer, counted.fetcher, AbortSignal.timeout(GENERATION_TIMEOUT_MS));
+    await recordPages(agencyId, job.clientId, counted.count(), assetId);
+    if (out.model) {
+      await recordUsage({
+        agencyId,
+        clientId: job.clientId,
+        kind: 'writer_call',
+        provider: deps.writer.mode === 'mock' ? 'mock' : resolveWriter().provider,
+        model: out.model,
+        tokensIn: out.tokensIn,
+        tokensOut: out.tokensOut,
+        refId: assetId,
+      });
+    }
     await withTenant(ctx, (db) =>
       db.query(
         `UPDATE assets SET status = 'done', content = $2, model = $3, tokens_in = $4, tokens_out = $5, mode = $6, finished_at = now()

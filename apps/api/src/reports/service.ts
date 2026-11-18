@@ -5,7 +5,8 @@ import { HttpError, notFound } from '../http.js';
 import type { Mailer } from '../mailer.js';
 import { newToken } from '../security.js';
 import type { Agency } from '../tenant.js';
-import type { Writer } from '../writer.js';
+import { resolveWriter, type Writer } from '../writer.js';
+import { recordUsage } from '../billing/usage.js';
 import { buildReportData, defaultPlan, summaryFacts, type ReportData } from './data.js';
 
 /** The AI summary costs one credit, refunded if it can't be written. */
@@ -65,7 +66,7 @@ export async function requestSummary(db: Db, id: string, userId: string | null):
   const report = await draftOr409(db, id);
   if (report.summary_state === 'pending') throw new HttpError(409, 'already_writing', 'The summary is already being written.');
   await db.query(`SELECT 1 FROM agencies WHERE id = app_agency_id() FOR UPDATE`);
-  const { rows } = await db.query<{ remaining: number }>(`SELECT credits_remaining(app_agency_id()) AS remaining`);
+  const { rows } = await db.query<{ remaining: number }>(`SELECT credits_spendable(app_agency_id()) AS remaining`);
   if (rows[0]!.remaining < SUMMARY_CREDITS) throw new HttpError(402, 'insufficient_credits', 'No credits are left this month for the AI summary. You can still write it yourself.');
   await db.query(
     `INSERT INTO credit_ledger (agency_id, delta, reason, report_id, created_by, note) VALUES ($1, $2, 'summary_reserved', $3, $4, 'Report summary')`,
@@ -96,15 +97,19 @@ function mockSummary(d: ReportData): string {
 /** The worker's half of the summary: writes it, or marks it failed and refunds the credit. */
 export async function runSummary(writer: Writer, reportId: string, agencyId: string): Promise<void> {
   const job = await withTenant({ agencyId }, async (db) => {
-    const { rows } = await db.query(`SELECT r.id, r.data, a.name AS agency FROM reports r JOIN agencies a ON a.id = r.agency_id WHERE r.id = $1 AND r.summary_state = 'pending'`, [reportId]);
-    return rows[0] as { id: string; data: ReportData; agency: string } | undefined;
+    const { rows } = await db.query(`SELECT r.id, r.client_id, r.data, a.name AS agency FROM reports r JOIN agencies a ON a.id = r.agency_id WHERE r.id = $1 AND r.summary_state = 'pending'`, [reportId]);
+    return rows[0] as { id: string; client_id: string; data: ReportData; agency: string } | undefined;
   });
   if (!job) return;
   try {
-    const text =
-      writer.mode === 'mock'
-        ? mockSummary(job.data)
-        : (await writer.write({ system: SUMMARY_SYSTEM, prompt: `Agency: ${job.agency}\n\n${summaryFacts(job.data)}`, maxTokens: 700 }, AbortSignal.timeout(90_000))).text.trim();
+    let text: string;
+    if (writer.mode === 'mock') {
+      text = mockSummary(job.data);
+    } else {
+      const written = await writer.write({ system: SUMMARY_SYSTEM, prompt: `Agency: ${job.agency}\n\n${summaryFacts(job.data)}`, maxTokens: 700 }, AbortSignal.timeout(90_000));
+      await recordUsage({ agencyId, clientId: job.client_id, kind: 'writer_call', provider: resolveWriter().provider, model: written.model, tokensIn: written.tokensIn, tokensOut: written.tokensOut, refId: reportId });
+      text = written.text.trim();
+    }
     await withTenant({ agencyId }, (db) =>
       db.query(`UPDATE reports SET summary_text = $2, summary_state = 'done', summary_mode = $3, updated_at = now() WHERE id = $1 AND summary_state = 'pending'`, [
         reportId,

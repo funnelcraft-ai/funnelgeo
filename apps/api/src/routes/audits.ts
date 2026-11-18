@@ -68,7 +68,7 @@ export async function auditRoutes(app: FastifyInstance, deps: AuditDeps): Promis
     async (req) => {
       const body = parse(z.object(businessFields).strict(), req.body);
       if (deps.engines.available.size === 0) throw new HttpError(409, 'no_engines', 'No answer engines are set up yet, so competitors cannot be suggested.');
-      return { competitors: await suggestCompetitors(deps.engines, body), engineMode: deps.engines.mode };
+      return { competitors: await suggestCompetitors(deps.engines, body, 3, { agencyId: scope(req).agencyId }), engineMode: deps.engines.mode };
     },
   );
 
@@ -261,7 +261,7 @@ export async function auditRoutes(app: FastifyInstance, deps: AuditDeps): Promis
       const { rows } = await db.query(`SELECT key, label, credit_cost FROM engines WHERE active ORDER BY sort`);
       const engines = rows.filter((e) => deps.engines.available.has(e.key));
       const { rows: quota } = await db.query<{ max: number; used: number }>(AUDIT_QUOTA_SQL);
-      const { rows: credits } = await db.query<{ remaining: number }>(`SELECT credits_remaining(app_agency_id()) AS remaining`);
+      const { rows: credits } = await db.query<{ remaining: number }>(`SELECT credits_spendable(app_agency_id()) AS remaining`);
       return {
         engines: engines.map((e) => e.label as string),
         creditsPerPrompt: AUDIT_SAMPLES * engines.reduce((sum, e) => sum + (e.credit_cost as number), 0),

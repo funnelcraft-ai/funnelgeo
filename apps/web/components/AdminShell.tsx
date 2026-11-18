@@ -12,6 +12,8 @@ export function AdminShell({ tenant, session, children }: { tenant: Tenant; sess
         <NavLinks
           items={[
             { href: '/admin', label: 'Agencies', icon: 'building', exact: true },
+            { href: '/admin/plans', label: 'Plans', icon: 'layers' },
+            { href: '/admin/costs', label: 'Costs', icon: 'coins' },
             { href: '/admin/settings', label: 'API keys', icon: 'key' },
           ]}
         />

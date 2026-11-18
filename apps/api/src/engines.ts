@@ -10,6 +10,8 @@ export interface EngineAnswer {
   tokensOut: number;
   /** What the provider says the call cost in USD, when it reports that. */
   costUsd: number | null;
+  /** The model that answered, for costing. */
+  model?: string;
 }
 
 /** Only the mock engine reads this. It must never be sent to a real engine: naming the brands would bias the answer. */
@@ -62,6 +64,7 @@ function chatgpt({ apiKey, model, baseUrl }: EngineCredentials): EngineAdapter {
         tokensIn: data.usage?.input_tokens ?? 0,
         tokensOut: data.usage?.output_tokens ?? 0,
         costUsd: null,
+        model,
       };
     },
   };
@@ -84,6 +87,7 @@ function perplexity({ apiKey, model, baseUrl }: EngineCredentials): EngineAdapte
         tokensIn: data.usage?.prompt_tokens ?? 0,
         tokensOut: data.usage?.completion_tokens ?? 0,
         costUsd: typeof cost === 'number' ? cost : null,
+        model,
       };
     },
   };
@@ -106,6 +110,7 @@ function gemini({ apiKey, model, baseUrl }: EngineCredentials): EngineAdapter {
         tokensIn: data.usageMetadata?.promptTokenCount ?? 0,
         tokensOut: data.usageMetadata?.candidatesTokenCount ?? 0,
         costUsd: null,
+        model,
       };
     },
   };
@@ -144,6 +149,7 @@ function mock(key: EngineKey): EngineAdapter {
         tokensIn: 20 + prompt.length,
         tokensOut: 60 + lines.length * 18,
         costUsd: null,
+        model: 'mock',
       };
     },
   };

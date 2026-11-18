@@ -108,7 +108,7 @@ export async function actionRoutes(app: FastifyInstance, opts: { tasks: TaskQueu
         [id],
       );
       const { rows: team } = await db.query(`SELECT id, name FROM users WHERE role IN ('agency_owner', 'agency_member') ORDER BY name`);
-      const { rows: credits } = await db.query<{ remaining: number }>(`SELECT credits_remaining(app_agency_id()) AS remaining`);
+      const { rows: credits } = await db.query<{ remaining: number }>(`SELECT credits_spendable(app_agency_id()) AS remaining`);
       const { rows: latest } = await db.query(`SELECT id FROM runs WHERE client_id = $1 AND status = 'completed' ORDER BY finished_at DESC LIMIT 1`, [id]);
       const writer = opts.writer.mode === 'mock' ? { ready: true, problem: null, label: 'Demo writer' } : (() => {
         const w = resolveWriter();
