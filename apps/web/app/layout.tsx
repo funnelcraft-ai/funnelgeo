@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { getTenant } from '@/lib/server';
-import '@fontsource-variable/onest';
+import '@fontsource-variable/roboto-flex/opsz.css';
+import { themeVars } from '@/lib/theme';
 import './globals.css';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenant();
   if (!tenant) return { title: 'Not found' };
   const branding = tenant.kind === 'agency' ? tenant.branding : {};
-  return { title: tenant.name, icons: [{ url: branding.faviconUrl ?? monogramIcon(tenant.name, branding.primaryColor ?? '#2450e6') }] };
+  return { title: tenant.name, icons: [{ url: branding.faviconUrl ?? monogramIcon(tenant.name, branding.primaryColor ?? '#1d2024') }] };
 }
 
 /** A tab icon made from the name's first letter, used until a favicon is uploaded. */
@@ -33,15 +34,9 @@ function readableOn(hex: string): string {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const tenant = await getTenant();
-  const style: Record<string, string> = {};
-  if (tenant?.kind === 'agency') {
-    const { primaryColor, accentColor } = tenant.branding;
-    if (primaryColor) {
-      style['--primary'] = primaryColor;
-      style['--on-primary'] = readableOn(primaryColor);
-    }
-    if (accentColor) style['--accent'] = accentColor;
-  }
+  // Material 3 colour roles from the agency's brand colour; charcoal on the platform's own pages.
+  const branding = tenant?.kind === 'agency' ? tenant.branding : null;
+  const style = themeVars(branding?.primaryColor, branding?.accentColor);
 
   return (
     <html lang="en">

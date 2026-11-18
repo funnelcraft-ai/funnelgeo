@@ -1,5 +1,5 @@
 import { ResetForm } from '@/components/AuthForms';
-import { Brand } from '@/components/Brand';
+import { AuthCardHead, AuthLayout } from '@/components/AuthLayout';
 import { apiGet, getTenant } from '@/lib/server';
 
 export default async function ResetPage({ params }: { params: Promise<{ token: string }> }) {
@@ -9,23 +9,22 @@ export default async function ResetPage({ params }: { params: Promise<{ token: s
   const data = await apiGet<{ email: string }>(`/v1/auth/reset/${encodeURIComponent(token)}`);
 
   return (
-    <main className="center">
-      <div className="auth-card">
-        <Brand tenant={tenant} />
-        {data ? (
+    <AuthLayout
+      tenant={tenant}
+      headline={<>Back in, in a moment.</>}
+      card={
+        data ? (
           <>
-            <h1>Choose a new password</h1>
-            <p className="muted">You will be signed in as soon as it is saved.</p>
+            <AuthCardHead title="Choose a new password" sub="You’ll be signed in as soon as it’s saved." />
             <ResetForm token={token} email={data.email} next={tenant.kind === 'platform' ? '/admin' : '/clients'} />
           </>
         ) : (
           <>
-            <h1>This link is no longer valid</h1>
-            <p className="muted">Reset links work once and expire after an hour. Request a new one to continue.</p>
+            <AuthCardHead title="This link is no longer valid" sub="Reset links work once and expire after an hour. Request a new one to continue." />
             <a className="button block" href="/forgot">Request a new link</a>
           </>
-        )}
-      </div>
-    </main>
+        )
+      }
+    />
   );
 }

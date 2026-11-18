@@ -8,6 +8,8 @@ if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Keeps the development badge out of the corner of screenshots.
+  devIndicators: false,
   eslint: { ignoreDuringBuilds: true },
   async headers() {
     return [

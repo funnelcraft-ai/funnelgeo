@@ -1,29 +1,30 @@
-import { OverviewPanel } from '@/components/OverviewPanel';
+import { Dashboard } from '@/components/dashboard/Dashboard';
 import { apiGet, getSession } from '@/lib/server';
-import type { Agency, Client, TeamInvite, TeamUser } from '@/lib/types';
+import type { Agency, Client, Overview, TeamInvite, TeamUser } from '@/lib/types';
+
+export const metadata = { title: 'Dashboard' };
 
 export default async function OverviewPage() {
   const session = await getSession();
   if (!session) return null; // the layout redirects
   const { role, name } = session.user;
   const isStaff = role !== 'client_viewer';
-  const [clients, agency, team, credits] = await Promise.all([
+  const [overview, clients, agency, team] = await Promise.all([
+    apiGet<Overview>('/v1/overview'),
     apiGet<{ clients: Client[] }>('/v1/clients'),
     isStaff ? apiGet<{ agency: Agency }>('/v1/agency') : null,
-    isStaff ? apiGet<{ users: TeamUser[]; invites: TeamInvite[] }>('/v1/team') : null,
-    isStaff ? apiGet<{ allowance: number; remaining: number }>('/v1/credits') : null,
+    role === 'agency_owner' ? apiGet<{ users: TeamUser[]; invites: TeamInvite[] }>('/v1/team') : null,
   ]);
+  if (!overview) return null;
   return (
-    <OverviewPanel
+    <Dashboard
       firstName={name.split(/\s+/)[0] ?? name}
-      initial={clients?.clients ?? []}
+      overview={overview}
+      clients={clients?.clients ?? []}
       canEdit={isStaff}
       isOwner={role === 'agency_owner'}
       agency={agency?.agency ?? null}
-      teamCount={team?.users.filter((u) => u.role !== 'client_viewer').length ?? 0}
-      viewerCount={team?.users.filter((u) => u.role === 'client_viewer').length ?? 0}
-      pendingInvites={team?.invites.length ?? 0}
-      credits={credits}
+      invited={(team?.users.length ?? 0) + (team?.invites.length ?? 0) > 1}
     />
   );
 }

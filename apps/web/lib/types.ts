@@ -564,3 +564,45 @@ export interface CostReport {
   models: { provider: string; model: string; events: number; requests: number; tokensIn: number; tokensOut: number; costUsd: number; unpriced: boolean; providerReported: boolean }[];
   prices: { provider: string; model: string; inputPerMTok: number; outputPerMTok: number; perRequest: number; updatedAt: string }[];
 }
+
+// Dashboard --------------------------------------------------------------------
+
+export type Health = 'healthy' | 'watch' | 'attention';
+
+export interface Overview {
+  kpis: {
+    visibility: { rate: number | null; answers: number; mentioned: number; previous: number | null; clientsMeasured: number };
+    visits: { last28: number; previous28: number };
+    questions: { active: number; clients: number };
+    attention: { clients: number; openActions: number };
+  };
+  trend: { engines: { key: string; label: string }[]; weeks: { week: string; engines: Record<string, { answers: number; mentioned: number }> }[] };
+  health: Record<Health, number>;
+  clients: {
+    id: string;
+    name: string;
+    domain: string | null;
+    questions: number;
+    lastRunAt: string | null;
+    answers: number;
+    mentioned: number;
+    visibility: number | null;
+    change: number | null;
+    shareOfVoice: number | null;
+    visits: number;
+    visitsBefore: number;
+    openActions: number;
+    health: Health;
+    reason: string;
+  }[];
+  activity: {
+    kind: 'run' | 'run_failed' | 'action_done' | 'report_sent' | 'audit';
+    at: string;
+    clientId: string;
+    client: string;
+    title: string | null;
+    ref: string;
+    answers: number;
+    mentioned: number;
+  }[];
+}

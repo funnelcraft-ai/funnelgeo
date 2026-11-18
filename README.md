@@ -241,6 +241,41 @@ your own API keys; see [Cost spike](#cost-spike).
 Not built yet: charging agencies (payments, invoices, GST); real plan prices
 wait for the cost spike.
 
+## Design
+
+Material 3 (2025 colour spec), applied to every page.
+
+- Colour: `apps/web/lib/theme.ts` generates every `--md-sys-color-*` role on
+  the server. An agency with a brand colour gets a tonal-spot scheme from it,
+  with the brand colour itself kept as the button colour when white text reads
+  on it (otherwise a darker tone of it). Its accent colour becomes the tertiary
+  palette. FunnelGeo's own pages, and agencies without a colour, use a charcoal
+  scheme taken from the Funnelcraft wordmark. Success and warning are built the
+  same way from fixed hues. Older short names in `globals.css` (`--primary`,
+  `--ink`, `--line`…) point at these roles
+- Type: Roboto Flex (optical-size cut), on the M3 type scale
+- Icons: Material Symbols Rounded, bundled as SVG paths for only the icons in
+  use (`apps/web/components/symbols.ts`, made by `scripts/gen-icons.py`)
+- Frame: a navigation drawer grouped by section with a credits card at its foot,
+  and a top bar with client search and the account menu. Below 1100px wide the
+  drawer becomes a modal drawer
+- Dashboard (`/clients`): AI visibility, AI visits, questions tracked and
+  clients needing attention; weekly visibility by engine; client health
+  (needs attention: a failed run, no run for 14 days, or visibility down 10+
+  points; watch: down 5–10); a clients table; recent activity. Served by
+  `GET /v1/overview`, which client viewers can call too: row-level security
+  limits them to their own client
+- Sign-in pages: a light band with a line drawing, the headline and what you
+  get on the left, the form in a raised card. Signup and the platform sign-in
+  describe FunnelGeo to agencies; an agency's own sign-in page shows only the
+  agency's name, logo and colours
+- Charts use a fixed, colour-blind-checked order for engines (blue, orange,
+  teal) with direct labels and a table view
+
+To see it with data, `node --env-file=.env scripts/seed-demo.mjs` (development
+only, mock engines) creates "Lumen Digital" with five clients and eight weeks of
+runs: sign in at `http://lumen-digital.localhost:3000` as `priya@lumen.test`.
+
 ## Layout
 
 ```
@@ -284,7 +319,7 @@ CREATE DATABASE geo_test OWNER geo_owner;   -- for npm test
 ## Tests
 
 ```bash
-npm test          # 162 integration tests; needs Postgres (geo_test) and Redis
+npm test          # 169 integration tests; needs Postgres (geo_test) and Redis
 npm run typecheck
 npm run build
 ```
