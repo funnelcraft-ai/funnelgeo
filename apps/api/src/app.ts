@@ -19,6 +19,7 @@ import { auditRoutes } from './routes/audits.js';
 import { settingsRoutes } from './routes/settings.js';
 import { diagnosisRoutes } from './routes/diagnosis.js';
 import { actionRoutes } from './routes/actions.js';
+import { proofRoutes } from './routes/proof.js';
 import { createWriter, type Writer } from './writer.js';
 import { refreshSettings, startSettingsRefresh } from './settings.js';
 import type { TaskQueue } from './audits/pipeline.js';
@@ -125,6 +126,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(auditRoutes, { engines, queue, tasks, siteMode: config.siteFetch });
   await app.register(diagnosisRoutes, { tasks, siteMode: config.siteFetch });
   await app.register(actionRoutes, { tasks, writer: options.writer ?? createWriter() });
+  await app.register(proofRoutes);
 
   return app;
 }

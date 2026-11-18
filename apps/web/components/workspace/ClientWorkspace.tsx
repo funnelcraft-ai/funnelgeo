@@ -8,11 +8,12 @@ import { PageHead } from '../Shell';
 import { BrandsTab } from './BrandsTab';
 import { ActionsTab } from './ActionsTab';
 import { DiagnosisTab } from './DiagnosisTab';
+import { VisitsTab } from './VisitsTab';
 import { PromptsTab } from './PromptsTab';
 import { RunsTab } from './RunsTab';
 import { VisibilityTab } from './VisibilityTab';
 
-type Tab = 'visibility' | 'diagnosis' | 'actions' | 'prompts' | 'brands' | 'runs';
+type Tab = 'visibility' | 'diagnosis' | 'actions' | 'visits' | 'prompts' | 'brands' | 'runs';
 
 interface Props {
   initial: Tracker;
@@ -33,7 +34,8 @@ export function ClientWorkspace({ initial, initialRun, initialVisibility, canEdi
   // Links from emails open a tab directly: /clients/<id>?tab=diagnosis
   useEffect(() => {
     const wanted = new URLSearchParams(window.location.search).get('tab');
-    if (canEdit && (wanted === 'diagnosis' || wanted === 'actions' || wanted === 'prompts' || wanted === 'brands' || wanted === 'runs')) setTab(wanted);
+    if (wanted === 'visits') setTab('visits');
+    else if (canEdit && (wanted === 'diagnosis' || wanted === 'actions' || wanted === 'prompts' || wanted === 'brands' || wanted === 'runs')) setTab(wanted);
   }, [canEdit]);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
@@ -127,12 +129,14 @@ export function ClientWorkspace({ initial, initialRun, initialVisibility, canEdi
         { key: 'visibility', label: 'Visibility' },
         { key: 'diagnosis', label: 'Diagnosis' },
         { key: 'actions', label: 'Actions' },
+        { key: 'visits', label: 'AI visits' },
         { key: 'prompts', label: `Prompts · ${tracker.prompts.length}` },
         { key: 'brands', label: `Brands · ${tracker.competitors.length + 1}` },
         { key: 'runs', label: 'Runs and schedule' },
       ]
     : [
         { key: 'visibility', label: 'Visibility' },
+        { key: 'visits', label: 'AI visits' },
         { key: 'runs', label: 'Runs' },
       ];
 
@@ -206,6 +210,7 @@ export function ClientWorkspace({ initial, initialRun, initialVisibility, canEdi
         )}
         {tab === 'diagnosis' && canEdit && <DiagnosisTab tracker={tracker} run={shown.run} onGoTo={setTab} />}
         {tab === 'actions' && canEdit && <ActionsTab tracker={tracker} onGoTo={setTab} />}
+        {tab === 'visits' && <VisitsTab tracker={tracker} canEdit={canEdit} onGoTo={setTab} />}
         {tab === 'prompts' && canEdit && <PromptsTab tracker={tracker} act={act} />}
         {tab === 'brands' && canEdit && <BrandsTab tracker={tracker} act={act} />}
         {tab === 'runs' && <RunsTab tracker={tracker} canEdit={canEdit} shownRunId={shown.run?.id ?? null} act={act} onShow={showRun} />}

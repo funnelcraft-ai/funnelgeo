@@ -546,3 +546,36 @@ td .type-tag { margin-left: 8px; vertical-align: 1px; }
   .queue-meta { width: 100%; justify-content: space-between; }
 }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+/* AI visits and change after actions ---------------------------------------------- */
+.visits > .card + .card, .visits > .grid-2 + .card, .visits > .card + .grid-2 { margin-top: 20px; }
+.visits > .visits-head { margin: 20px 0 16px; }
+.visits > p.muted.small { margin: 18px 0 0; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.grid-2 > .card { margin-top: 0; }
+.day-bars { display: flex; align-items: flex-end; gap: 3px; height: 140px; padding-top: 6px; }
+.day-bars > span { flex: 1; min-height: 3px; background: var(--primary); border-radius: 3px 3px 0 0; }
+.day-bars > span.zero { background: var(--line); }
+.hbars { list-style: none; margin: 0; padding: 0 24px 20px; display: grid; gap: 10px; }
+.hbars li { display: grid; grid-template-columns: 130px 1fr auto; align-items: center; gap: 12px; font-size: 13.5px; }
+.hbar { height: 10px; background: var(--wash); border-radius: 5px; overflow: hidden; }
+.hbar > span { display: block; height: 100%; background: var(--primary); border-radius: 5px; }
+.hbar-value { font-weight: 600; min-width: 2ch; text-align: right; }
+td.path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+td .pill { margin-left: 6px; }
+.install .card-head p .icon { width: 14px; height: 14px; color: var(--ok); vertical-align: -2px; }
+.install-steps { margin: 0; padding-left: 20px; display: grid; gap: 16px; }
+.install-steps li p { margin: 0 0 8px; font-size: 14px; }
+.code-line { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--wash); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.code-line code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12.5px; }
+.install-foot { margin: 16px 0 0; }
+.change-after { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--wash); }
+.change-after p { margin: 6px 0 0; font-size: 14px; }
+.change-after p.small { font-size: 12.5px; }
+.change-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.change-head .label { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+table.compact { margin-top: 10px; font-size: 13px; }
+table.compact th, table.compact td { padding: 6px 10px; }
+table.compact tr.total td { font-weight: 600; }
+@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .hbars li { grid-template-columns: 90px 1fr auto; } .hbars { padding: 0 16px 16px; } }

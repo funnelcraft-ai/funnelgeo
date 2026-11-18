@@ -56,6 +56,9 @@ export const config = {
   siteFetch: (process.env.SITE_FETCH ?? 'live') as 'live' | 'mock',
   /** Requests one visitor may send through the website widget per hour. */
   widgetPerHour: Number(process.env.WIDGET_PER_HOUR ?? 5),
+  /** Visit collector: its port, and how many events one address may send per minute. */
+  collectorPort: Number(process.env.COLLECTOR_PORT ?? 4100),
+  collectorPerMinute: Number(process.env.COLLECTOR_PER_MINUTE ?? 120),
   engineTimeoutMs: Number(process.env.ENGINE_TIMEOUT_MS ?? 90_000),
   /** Calls per second allowed to each engine, across all workers. */
   engineCallsPerSecond: Number(process.env.ENGINE_CALLS_PER_SECOND ?? 2),

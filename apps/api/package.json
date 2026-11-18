@@ -11,7 +11,9 @@
     "migrate": "tsx --env-file-if-exists=../../.env src/migrate.ts",
     "seed:admin": "tsx --env-file-if-exists=../../.env src/seed.ts",
     "test": "node --env-file=.env.test --import tsx --test --test-concurrency=1 test/*.test.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "collector": "tsx --env-file-if-exists=../../.env src/collector-server.ts",
+    "start:collector": "node --env-file-if-exists=../../.env dist/collector-server.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.0",

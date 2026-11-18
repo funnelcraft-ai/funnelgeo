@@ -144,6 +144,38 @@ it done). An Actions tab on each client, for agency staff only:
 Not in this milestone: client approval of actions, task due dates (both
 phase 2) and publishing to a CMS (phase 3).
 
+**Milestone 7, Proof** (complete, tested against its exit check: a test
+visit from an AI referrer appears in the dashboard within a minute, and a done
+action shows its comparison after the next run):
+
+- A one-line tracking snippet per client, served from the agency's own
+  address: `<script async src="https://<agency>/t.js" data-site="…"></script>`.
+  It sends a visit only when the page was reached from an AI assistant
+  (ChatGPT, Perplexity, Gemini, Claude, Copilot, DeepSeek, Meta AI and
+  others), by referring site or utm_source; one install ping per browser per
+  day; and conversions via `funnelgeo('convert', 'Name')` during an AI visit
+- Privacy: no cookies, no IP addresses or user agents stored, the query
+  string dropped except utm_source, a random per-tab session id hashed with
+  the site key. Visits older than 13 months are deleted
+- The collector is its own process (`npm run dev:collector`). It keeps only
+  visits that land on the client's own domain, answers 204 to everything,
+  rate-limits per address, and dedupes reloads within 30 minutes. Prospects
+  aren't tracked. A site key can be replaced if it leaks
+- An "AI visits" tab per client (client viewers see it too, without the
+  install details): install status with a "Send a test visit" link, totals,
+  visits by day, by assistant, landing pages and the latest visits, updated
+  every 10 seconds. Test visits are listed but kept out of totals
+- Before and after on each done action: how often the client was named on
+  the action's linked questions in the 4 weeks before and after the done
+  date, by engine, with answer and run counts; plus AI visits to the done URL.
+  Labelled improved, no clear change, declined or too early (fewer than 6
+  answers either side). Improved or declined needs a change of at least 10
+  points that a one-sided two-proportion test puts beyond noise (z ≥ 1.645).
+  Worded as what followed the action, never as what it caused
+
+Google AI Overviews and AI Mode arrive as ordinary google.com referrals, so
+no snippet can count them; the tab says so.
+
 **Platform API keys** (super admin): one screen for the engine keys and
 models and the email server, with a Test button for each. See
 [API keys screen](#api-keys-screen).
@@ -151,7 +183,7 @@ models and the email server, with a Test button for each. See
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
-Not built yet: proof (milestone 7), reports (8), plans and billing (9).
+Not built yet: reports (milestone 8), plans and billing (9).
 
 ## Layout
 

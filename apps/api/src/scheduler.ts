@@ -3,6 +3,7 @@ import { HttpError } from './http.js';
 import { closeStuckSiteAudits, completeAudit, type TaskQueue } from './audits/pipeline.js';
 import { stuckDiagnoses } from './diagnosis/jobs.js';
 import { closeStuckAssets } from './actions/service.js';
+import { pruneVisits } from './proof/collector.js';
 import type { Mailer } from './mailer.js';
 import { createRun, settleRun, type TrackerDeps } from './tracker/runs.js';
 
@@ -79,6 +80,8 @@ export async function closeStuckRuns(mailer?: Mailer, tasks?: TaskQueue): Promis
   return stuck.length;
 }
 
+let lastPrune = 0;
+
 export function startScheduler(deps: TrackerDeps & { mailer?: Mailer; tasks?: TaskQueue }, onError: (err: unknown) => void, everyMs = 60_000): { stop(): void } {
   let busy = false;
   const tick = async () => {
@@ -91,6 +94,11 @@ export function startScheduler(deps: TrackerDeps & { mailer?: Mailer; tasks?: Ta
       if (deps.tasks) for (const d of await stuckDiagnoses()) await deps.tasks.diagnose(d.run_id, d.agency_id);
       await closeStuckSiteAudits(deps.mailer);
       await closeStuckAssets();
+      // Old visits, at most once an hour.
+      if (Date.now() - lastPrune > 3_600_000) {
+        lastPrune = Date.now();
+        await pruneVisits();
+      }
     } catch (err) {
       onError(err);
     } finally {

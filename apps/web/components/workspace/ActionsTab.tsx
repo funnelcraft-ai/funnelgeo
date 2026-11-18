@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { load, send } from '@/lib/client';
-import type { Action, ActionAssetSummary, ActionQueue, ActionStatus, AssetKind, AssetView, Tracker } from '@/lib/types';
+import type { Action, ActionAssetSummary, ActionQueue, ActionStatus, AssetKind, AssetView, Comparison, Tracker } from '@/lib/types';
 import { Icon } from '../Icon';
 import { formatDate } from './ClientWorkspace';
 
@@ -260,6 +260,7 @@ function ActionCard({ action: a, queue, onChanged }: { action: Action; queue: Ac
           {a.doneNote && <> · {a.doneNote}</>}
         </p>
       )}
+      {a.status === 'done' && a.comparison && <ChangeAfter comparison={a.comparison} />}
       {a.status === 'dismissed' && (
         <p className="muted small">
           {a.dismissReason === 'resolved' ? 'Closed automatically: the latest run no longer shows this problem.' : `Dismissed ${formatDate(a.dismissedAt!)}. It won’t be suggested again for 90 days.`}
@@ -447,5 +448,60 @@ function AssetEditor({ actionId, kind, latestVersion, onSaved }: { actionId: str
       </div>
       {state.error && <p className="error" role="alert">{state.error}</p>}
     </div>
+  );
+}
+
+const CHANGE_LABEL: Record<Comparison['label'], { text: string; tone: string }> = {
+  improved: { text: 'Improved', tone: 'ok' },
+  no_change: { text: 'No clear change', tone: '' },
+  declined: { text: 'Declined', tone: 'bad' },
+  too_early: { text: 'Too early', tone: '' },
+};
+const pct = (r: number | null) => (r === null ? '–' : `${Math.round(r * 100)}%`);
+
+/** What followed the action: never presented as what the action caused. */
+function ChangeAfter({ comparison: c }: { comparison: Comparison }) {
+  const label = CHANGE_LABEL[c.label];
+  return (
+    <section className="change-after" aria-label="Change after this action">
+      <div className="change-head">
+        <span className="label">Change after this action</span>
+        {c.questions > 0 && <span className={`pill ${label.tone}`}>{label.text}</span>}
+      </div>
+      <p>{c.sentence}</p>
+      {c.questions > 0 && c.before.answers > 0 && c.after.answers > 0 && (
+        <div className="table-wrap">
+          <table className="compact">
+            <thead>
+              <tr>
+                <th>Named in answers</th>
+                <th>{c.windowDays / 7} weeks before</th>
+                <th>{c.complete ? `${c.windowDays / 7} weeks after` : 'After, so far'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {c.byEngine.map((e) => (
+                <tr key={e.key}>
+                  <td>{e.label}</td>
+                  <td>{pct(e.before.rate)} <span className="muted small">({e.before.named} of {e.before.answers})</span></td>
+                  <td>{pct(e.after.rate)} <span className="muted small">({e.after.named} of {e.after.answers})</span></td>
+                </tr>
+              ))}
+              <tr className="total">
+                <td>All engines</td>
+                <td>{pct(c.before.rate)} <span className="muted small">({c.before.named} of {c.before.answers}, {c.before.runs} {c.before.runs === 1 ? 'run' : 'runs'})</span></td>
+                <td>{pct(c.after.rate)} <span className="muted small">({c.after.named} of {c.after.answers}, {c.after.runs} {c.after.runs === 1 ? 'run' : 'runs'})</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      {c.visits && (
+        <p className="muted small">
+          AI visits to {c.visits.path}: {c.visits.before} in the {c.windowDays / 7} weeks before, {c.visits.after} after{c.complete ? '' : ' so far'}.
+        </p>
+      )}
+      <p className="muted small">AI answers change from month to month for many reasons, so this shows what followed the action, not proof it caused it.</p>
+    </section>
   );
 }

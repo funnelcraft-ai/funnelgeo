@@ -10,6 +10,7 @@ import { AGENCY_STAFF, HttpError, notFound, parse, requireRole, scope, uuidParam
 import type { Writer } from '../writer.js';
 import { WRITER_LABEL, resolveWriter } from '../writer.js';
 import { clientOr404 } from './tracker.js';
+import { comparisonFor, type Comparison } from '../proof/compare.js';
 
 type Status = 'suggested' | 'approved' | 'in_progress' | 'done' | 'dismissed';
 
@@ -35,9 +36,10 @@ const ACTION_SQL = `
     LEFT JOIN users o ON o.id = a.owner_user_id
     LEFT JOIN users ap_user ON ap_user.id = a.approved_by`;
 
-function present(row: any) {
+function present(row: any, comparison: Comparison | null = null) {
   const details = row.details as ActionDetails;
   return {
+    comparison,
     id: row.id as string,
     type: row.type as ActionType,
     typeLabel: ACTION_TYPE_LABEL[row.type as ActionType],
@@ -73,10 +75,17 @@ function present(row: any) {
   };
 }
 
+/** Finished actions carry their before and after; the rest don't need it. */
+async function withComparison(db: Db, row: any) {
+  if (row.status !== 'done') return present(row);
+  const { rows } = await db.query(`SELECT name FROM clients WHERE id = $1`, [row.client_id]);
+  return present(row, await comparisonFor(db, row, rows[0]?.name ?? 'The client'));
+}
+
 async function actionOr404(db: Db, id: string) {
   const { rows } = await db.query(`${ACTION_SQL} WHERE a.id = $1`, [id]);
   if (!rows[0]) throw notFound('Action not found');
-  return present(rows[0]);
+  return withComparison(db, rows[0]);
 }
 
 const slugify = (text: string) => text.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'asset';
@@ -106,7 +115,7 @@ export async function actionRoutes(app: FastifyInstance, opts: { tasks: TaskQueu
         return { ready: !w.problem, problem: w.problem, label: `${WRITER_LABEL[w.provider]}${w.model ? ` · ${w.model}` : ''}` };
       })();
       return {
-        actions: rows.map(present),
+        actions: await Promise.all(rows.map((row) => withComparison(db, row))),
         team: team.map((u) => ({ id: u.id as string, name: u.name as string })),
         credits: credits[0]!.remaining,
         writer: { mode: opts.writer.mode, ...writer },

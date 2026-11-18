@@ -146,3 +146,5 @@ export function requireRole(...roles: Role[]) {
 }
 
 export const AGENCY_STAFF: Role[] = ['agency_owner', 'agency_member'];
+/** Everyone in an agency's workspace, client viewers included. */
+export const ANYONE: Role[] = ['agency_owner', 'agency_member', 'client_viewer'];

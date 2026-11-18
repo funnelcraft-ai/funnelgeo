@@ -1,7 +1,9 @@
 {
   "name": "funnelgeo",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "migrate": "npm run migrate -w @geo/api",
     "seed:admin": "npm run seed:admin -w @geo/api",
@@ -10,7 +12,10 @@
     "dev:worker": "npm run worker -w @geo/api",
     "build": "npm run build -w @geo/api && npm run build -w @geo/web",
     "test": "npm run test -w @geo/api",
-    "typecheck": "npm run typecheck -w @geo/api && npm run typecheck -w @geo/web"
+    "typecheck": "npm run typecheck -w @geo/api && npm run typecheck -w @geo/web",
+    "dev:collector": "npm run collector -w @geo/api"
   },
-  "engines": { "node": ">=22.9" }
+  "engines": {
+    "node": ">=22.9"
+  }
 }

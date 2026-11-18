@@ -379,7 +379,27 @@ export interface ActionAssetSummary {
   createdAt: string;
 }
 
+export interface ComparisonSide {
+  answers: number;
+  named: number;
+  runs: number;
+  rate: number | null;
+}
+
+export interface Comparison {
+  label: 'improved' | 'no_change' | 'declined' | 'too_early';
+  sentence: string;
+  windowDays: number;
+  complete: boolean;
+  before: ComparisonSide;
+  after: ComparisonSide;
+  byEngine: { key: string; label: string; before: ComparisonSide; after: ComparisonSide }[];
+  visits: { path: string; before: number; after: number } | null;
+  questions: number;
+}
+
 export interface Action {
+  comparison: Comparison | null;
   id: string;
   type: string;
   typeLabel: string;
@@ -417,4 +437,16 @@ export interface AssetView {
   label: string;
   versions: { id: string; version: number; status: string; origin: 'generated' | 'edited'; mode: 'live' | 'mock'; model: string | null; credits: number; error: string | null; createdAt: string; createdBy: string | null }[];
   current: { id: string; version: number; status: string; content: string | null };
+}
+
+// AI visits ------------------------------------------------------------------------
+
+export interface VisitsView {
+  days: 7 | 30 | 90;
+  snippet: { tag: string; convert: string; seenAt: string | null; testUrl: string | null; domain: string | null } | null;
+  totals: { visits: number; conversions: number; sessions: number };
+  byEngine: { key: string; label: string; visits: number; conversions: number }[];
+  byDay: { day: string; visits: number }[];
+  pages: { path: string; visits: number; conversions: number }[];
+  recent: { id: string; occurredAt: string; engine: string; engineLabel: string; via: 'referrer' | 'utm'; path: string; converted: boolean; conversionName: string | null; isTest: boolean }[];
 }
