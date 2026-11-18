@@ -56,6 +56,10 @@ export const config = {
   siteFetch: (process.env.SITE_FETCH ?? 'live') as 'live' | 'mock',
   /** Requests one visitor may send through the website widget per hour. */
   widgetPerHour: Number(process.env.WIDGET_PER_HOUR ?? 5),
+  /** Chrome or Chromium on the worker, for report PDFs. */
+  chromePath: process.env.CHROME_PATH ?? '',
+  /** Development only: Chrome --host-resolver-rules, so agency hostnames reach the local web app. */
+  pdfHostRules: process.env.PDF_HOST_RULES ?? '',
   /** Visit collector: its port, and how many events one address may send per minute. */
   collectorPort: Number(process.env.COLLECTOR_PORT ?? 4100),
   collectorPerMinute: Number(process.env.COLLECTOR_PER_MINUTE ?? 120),

@@ -1,4 +1,9 @@
 import pg from 'pg';
+
+// Calendar dates (SQL date) stay as 'YYYY-MM-DD' text. Turning them into a JS
+// Date would put them at midnight in the server's time zone and shift them by
+// a day when converted back, depending on where the server runs.
+pg.types.setTypeParser(1082, (value: string) => value);
 import { config } from './config.js';
 
 /**

@@ -450,3 +450,55 @@ export interface VisitsView {
   pages: { path: string; visits: number; conversions: number }[];
   recent: { id: string; occurredAt: string; engine: string; engineLabel: string; via: 'referrer' | 'utm'; path: string; converted: boolean; conversionName: string | null; isTest: boolean }[];
 }
+
+// Monthly reports --------------------------------------------------------------------
+
+export interface ReportRate {
+  answers: number;
+  named: number;
+  rate: number | null;
+}
+
+export interface MonthlyReportData {
+  client: { name: string; domain: string | null };
+  period: { start: string; end: string; label: string };
+  previous: { start: string; end: string; label: string };
+  runs: number;
+  questions: number;
+  overall: ReportRate;
+  overallBefore: ReportRate | null;
+  engines: { key: string; label: string; now: ReportRate; before: ReportRate | null }[];
+  shareOfVoice: { name: string; isClient: boolean; answers: number; share: number | null }[];
+  trend: { date: string; answers: number; named: number; rate: number | null }[];
+  actionsDone: { title: string; type: string; doneAt: string; url: string | null; note: string | null; change: Comparison['label'] | null; changeSentence: string | null }[];
+  visits: { installed: boolean; total: number; conversions: number; totalBefore: number; byEngine: { label: string; visits: number; conversions: number }[]; pages: { path: string; visits: number }[] };
+  plan: { title: string; type: string; status: string }[];
+  method: { engines: string[]; samplesPerQuestion: number | null; engineMode: 'live' | 'mock' | 'mixed' | null };
+  demo: boolean;
+}
+
+export interface MonthlyReport {
+  id: string;
+  clientId: string;
+  periodStart: string;
+  periodEnd: string;
+  status: 'draft' | 'approved' | 'sent';
+  data: MonthlyReportData;
+  dataAt: string;
+  summaryText: string | null;
+  summaryState: 'none' | 'pending' | 'done' | 'failed';
+  summaryError: string | null;
+  summaryMode: 'live' | 'mock' | null;
+  planText: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  sendState: 'none' | 'pending' | 'done' | 'failed' | null;
+  sendError: string | null;
+  recipients: string[];
+  sentAt: string | null;
+  hasPdf: boolean;
+  liveUrl: string | null;
+  createdAt: string;
+}
+
+export type MonthlyReportListItem = Omit<MonthlyReport, 'data'> & { headline: { named: number; answers: number; runs: number } };

@@ -6,6 +6,8 @@ import type { SiteFetcher } from './audits/fetch.js';
 import { completeAudit, processLead, runSiteAudit, type TaskQueue } from './audits/pipeline.js';
 import { runDiagnosis } from './diagnosis/jobs.js';
 import { runGeneration } from './actions/service.js';
+import { renderReportPdf } from './reports/pdf.js';
+import { runSend, runSummary, type PdfRenderer } from './reports/service.js';
 import { createWriter, type Writer } from './writer.js';
 import type { Mailer } from './mailer.js';
 import { processCall, type CallJob, type CallQueue } from './tracker/runs.js';
@@ -14,6 +16,8 @@ const SITE_QUEUE = 'site-audits';
 const LEAD_QUEUE = 'leads';
 const DIAGNOSIS_QUEUE = 'diagnoses';
 const GENERATE_QUEUE = 'generate';
+const REPORT_SUMMARY_QUEUE = 'report-summaries';
+const REPORT_SEND_QUEUE = 'report-sends';
 interface TaskJob {
   id: string;
   agencyId: string;
@@ -73,6 +77,12 @@ export function createQueue(options: QueueOptions = {}): CallQueue & TaskQueue &
     async lead(id, agencyId) {
       await taskQueue(LEAD_QUEUE).add('lead', { id, agencyId } satisfies TaskJob, { jobId: id });
     },
+    async reportSummary(reportId, agencyId) {
+      await taskQueue(REPORT_SUMMARY_QUEUE).add('summary', { id: reportId, agencyId } satisfies TaskJob, { jobId: `summary-${reportId}-${Date.now()}`, attempts: 1 });
+    },
+    async reportSend(reportId, agencyId) {
+      await taskQueue(REPORT_SEND_QUEUE).add('send', { id: reportId, agencyId } satisfies TaskJob, { jobId: `send-${reportId}-${Date.now()}`, attempts: 1 });
+    },
     async generate(assetId, agencyId) {
       await taskQueue(GENERATE_QUEUE).add('generate', { id: assetId, agencyId } satisfies TaskJob, { jobId: assetId, attempts: 1 });
     },
@@ -101,6 +111,8 @@ export interface AuditWorkerDeps {
   siteMode: 'live' | 'mock';
   /** Writes the action queue's assets; the configured writing model when not given. */
   writer?: Writer;
+  /** Prints reports to PDF; headless Chrome when not given. */
+  renderPdf?: PdfRenderer;
 }
 
 export function startWorkers(
@@ -150,6 +162,8 @@ export function startWorkers(
     };
     taskWorker(SITE_QUEUE, (job) => runSiteAudit(audit.fetcher, job.id, job.agencyId, audit.mailer), 3);
     const writer = audit.writer ?? createWriter();
+    taskWorker(REPORT_SUMMARY_QUEUE, (job) => runSummary(writer, job.id, job.agencyId), 2);
+    taskWorker(REPORT_SEND_QUEUE, (job) => runSend({ mailer: audit.mailer, renderPdf: audit.renderPdf ?? renderReportPdf }, job.id, job.agencyId), 1);
     taskWorker(GENERATE_QUEUE, (job) => runGeneration({ writer, fetcher: audit.fetcher }, job.id, job.agencyId), 3);
     taskWorker(DIAGNOSIS_QUEUE, (job) => runDiagnosis({ fetcher: audit.fetcher, mailer: audit.mailer, siteMode: audit.siteMode }, job.id, job.agencyId), 2);
     taskWorker(LEAD_QUEUE, (job) => processLead({ engines, queue: audit.queue, tasks: audit.queue, siteMode: audit.siteMode, mailer: audit.mailer }, job.id, job.agencyId), 2);

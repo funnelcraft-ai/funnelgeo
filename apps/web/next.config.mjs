@@ -24,6 +24,13 @@ const nextConfig = {
       { source: '/embed/:path*', headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }] },
       // Shared reports: links in them must not pass the report's address on, and search engines must not list them.
       {
+        source: '/r/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
+      {
         source: '/report/:path*',
         headers: [
           { key: 'Referrer-Policy', value: 'no-referrer' },

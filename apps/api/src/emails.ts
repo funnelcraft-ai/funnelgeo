@@ -224,3 +224,42 @@ export function runSummaryEmail(brand: Brand, input: RunSummary & { to: string; 
     }),
   };
 }
+
+/** To the client: the monthly report, from the agency, with the PDF attached. */
+export function clientReportEmail(brand: Brand, input: { to: string; client: string; period: string; url: string; pdf: Buffer; filename: string }): Mail {
+  return {
+    to: input.to,
+    fromName: brand.fromName,
+    subject: `${input.client}: AI visibility report for ${input.period}`,
+    attachments: [{ filename: input.filename, content: input.pdf, contentType: 'application/pdf' }],
+    ...render(brand, {
+      heading: `Your AI visibility report for ${input.period}`,
+      lines: [
+        `Here is ${input.client}’s report for ${input.period}: how often AI assistants named ${input.client}, what we did, and what changed afterwards.`,
+        'The PDF is attached. The link below opens the same report in your browser.',
+      ],
+      button: 'Open the report',
+      url: input.url,
+      footnote: `Sent by ${brand.name}.`,
+    }),
+  };
+}
+
+/** To the agency's owners: monthly drafts are waiting for review. */
+export function reportsReadyEmail(brand: Brand, input: { to: string; period: string; clients: string[]; url: string }): Mail {
+  const n = input.clients.length;
+  return {
+    to: input.to,
+    fromName: brand.fromName,
+    subject: `${n} ${n === 1 ? 'report' : 'reports'} for ${input.period} ready to review`,
+    ...render(brand, {
+      heading: `Monthly reports for ${input.period}`,
+      lines: [
+        `Drafts are ready for ${n === 1 ? input.clients[0] : `${n} clients: ${input.clients.slice(0, 5).join(', ')}${n > 5 ? ` and ${n - 5} more` : ''}`}.`,
+        'Each has an AI-written summary to check and edit. Nothing is sent to a client until someone on your team approves it.',
+      ],
+      button: 'Review the reports',
+      url: input.url,
+    }),
+  };
+}

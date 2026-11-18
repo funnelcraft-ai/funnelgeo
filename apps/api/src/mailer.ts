@@ -9,6 +9,8 @@ export interface Mail {
   subject: string;
   text: string;
   html: string;
+  /** Files sent with the email, such as a report's PDF. */
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
 }
 
 export interface Mailer {
@@ -49,6 +51,7 @@ export function createMailer(): Mailer {
         subject: mail.subject.replace(/[\r\n]+/g, ' '),
         text: mail.text,
         html: mail.html,
+        attachments: mail.attachments,
       });
     },
   };

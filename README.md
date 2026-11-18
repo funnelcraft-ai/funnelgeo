@@ -176,6 +176,33 @@ action shows its comparison after the next run):
 Google AI Overviews and AI Mode arrive as ordinary google.com referrals, so
 no snippet can count them; the tab says so.
 
+**Milestone 8, Reports** (complete, tested against its exit check: a report
+for a test client generates, is edited, approved and received with agency
+branding only):
+
+- One report per client and calendar month: summary, visibility by engine
+  against the previous month, share of voice, the trend by run, actions done
+  with the change after each, AI visits, next month's plan, and a "how this is
+  measured" note. Every rate is shown with what it is out of
+- Drafted automatically on the 1st for last month, for every client with a
+  completed run that month, with one email per agency to its owners; or for
+  any month from the client's Reports tab
+- The AI summary (1 credit, refunded on failure) is written only from the
+  report's own figures, with rules against claiming an action caused a change.
+  The agency edits it and the plan; both are required reading before approval
+- Draft → approved → sent. Approving freezes the figures and opens the live
+  link; an approved report can be reopened until it is sent. Nothing reaches a
+  client without an agency user's approval
+- Sending: the worker prints the live page itself to PDF with headless Chrome
+  (CHROME_PATH), so PDF and link always match, then emails each recipient from
+  the agency's name with the PDF attached. Recipients default to the client's
+  dashboard users plus last time's list. The live link works only on the
+  agency's own address. Client viewers see their sent reports and PDFs
+- Whitelabel: the platform's name appears in no email, PDF or live page. With
+  a verified custom domain, its address doesn't either
+- SQL dates are kept as 'YYYY-MM-DD' text throughout the API, so periods don't
+  shift a day with the server's time zone
+
 **Platform API keys** (super admin): one screen for the engine keys and
 models and the email server, with a Test button for each. See
 [API keys screen](#api-keys-screen).
@@ -183,7 +210,7 @@ models and the email server, with a Test button for each. See
 **Milestone 1, Cost spike**: the script is in `spike/`. It has to be run with
 your own API keys; see [Cost spike](#cost-spike).
 
-Not built yet: reports (milestone 8), plans and billing (9).
+Not built yet: plans, billing and super admin reporting (milestone 9).
 
 ## Layout
 

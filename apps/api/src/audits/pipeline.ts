@@ -18,6 +18,10 @@ export interface TaskQueue {
   diagnose(runId: string, agencyId: string): Promise<void>;
   /** Writes one asset for an action. */
   generate(assetId: string, agencyId: string): Promise<void>;
+  /** Writes a report's AI summary. */
+  reportSummary(reportId: string, agencyId: string): Promise<void>;
+  /** Makes a report's PDF and emails it. */
+  reportSend(reportId: string, agencyId: string): Promise<void>;
 }
 
 export interface AuditDeps extends TrackerDeps {
