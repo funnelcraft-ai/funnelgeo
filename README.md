@@ -1,10 +1,64 @@
 # FunnelGeo
 
-A whitelabel GEO delivery platform by Funnelcraft. Agencies resell
-AI-visibility services under their own brand. Built milestone by milestone
-from the PRD.
+**White-label AI search visibility (GEO) for agencies.** FunnelGeo asks
+ChatGPT, Perplexity and Gemini the questions your clients' buyers ask, shows
+when each client is named and which sources the engines cite, ranks the fixes
+that would win those answers, and proves the result with AI-visit tracking and
+monthly reports, all under the agency's own name, logo, colours and domain.
 
-## What is built
+Built by [Funnelcraft](https://funnelcraft.online).
+
+![FunnelGeo dashboard](docs/screenshots/dashboard.png)
+
+> **Status:** in development, not yet live. Everything below runs locally with
+> stand-in engines; real engine costs, payments and the production deployment
+> are still to come (see [Open items](#open-items)).
+
+## What it does
+
+| For | What they get |
+| --- | --- |
+| **Agencies** | A branded workspace at their own subdomain or domain, clients and team logins, prospect audits that turn into clients, and usage and credits per month |
+| **Each client** | Weekly checks across AI engines with every answer stored, visibility and share of voice against competitors, the sources behind each answer, a diagnosis of why questions are lost, and a ranked queue of fixes with AI-written briefs, FAQs and outreach drafts |
+| **Proof** | A tracking snippet that records visits from AI assistants, before-and-after figures for every finished fix, and monthly reports the agency approves before they go out, as a live link and a PDF |
+| **The platform owner** | Plans and credit allowances, the cost of every provider call, margin per agency, and a monthly check that recorded costs match provider invoices within 5% |
+
+Nothing an agency's client sees names FunnelGeo: emails, pages, reports and
+PDFs carry the agency's brand only.
+
+| | |
+| --- | --- |
+| ![Client visibility](docs/screenshots/client-visibility.png) | ![Agency sign-in, white-labelled](docs/screenshots/agency-login.png) |
+| Visibility for one client, by engine and competitor | An agency's own sign-in page, in its brand colour |
+| ![Signup](docs/screenshots/signup.png) | ![Costs and margin](docs/screenshots/admin-costs.png) |
+| Agency signup on the platform address | Super admin: provider costs against invoices |
+
+## Tech stack
+
+- **Web:** Next.js 15, React 19, Material 3 (colour scheme generated per agency), Roboto Flex, Material Symbols
+- **API and workers:** Node.js 22, TypeScript, Fastify 5, zod, BullMQ on Redis 7, puppeteer-core for report PDFs
+- **Data:** PostgreSQL 16 with row-level security for tenant isolation
+- **AI providers:** OpenAI, Perplexity and Gemini as answer engines; OpenAI, Anthropic or Gemini for writing
+- **Tests:** 169 integration tests against real Postgres and Redis with stand-in providers
+
+Start with [Run it locally](#run-it-locally). The developer handbook covers
+conventions, testing, deployment and troubleshooting in more depth.
+
+## Open items
+
+- Deployment kit for Railway (Dockerfile with Chromium, per-service config) and custom domains through Railway's API
+- Cost spike with real engine keys, then credit costs and plan prices
+- Payments and GST invoices for agencies
+- Terms and privacy policy pages
+- Continuous integration (typecheck, tests and build on every pull request)
+
+## License and use
+
+Copyright Funnelcraft. All rights reserved. The source is public to read; it is
+not licensed for reuse, redistribution or hosting by others. To report a
+security problem, see [SECURITY.md](SECURITY.md).
+
+## Build log
 
 **Milestone 2, Foundations** (complete):
 
