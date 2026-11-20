@@ -3,10 +3,16 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile",
-    "watchPatterns": ["apps/api/**", "package-lock.json", "Dockerfile"]
+    "watchPatterns": [
+      "apps/api/**",
+      "package-lock.json",
+      "Dockerfile"
+    ]
   },
   "deploy": {
-    "preDeployCommand": ["node apps/api/dist/migrate.js"],
+    "preDeployCommand": [
+      "sh -c 'node apps/api/dist/migrate.js && if [ -n \"$SUPER_ADMIN_EMAIL\" ]; then node apps/api/dist/seed.js; fi'"
+    ],
     "startCommand": "node apps/api/dist/server.js",
     "healthcheckPath": "/healthz",
     "restartPolicyType": "ON_FAILURE",

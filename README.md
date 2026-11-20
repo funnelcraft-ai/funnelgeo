@@ -538,7 +538,7 @@ The `Dockerfile` builds one image for every service; each service's start comman
 |---|---|---|
 | Postgres | (Railway database) | |
 | Redis | (Railway database) | |
-| api | `infra/railway/api.json` | Runs migrations before each deploy. Private only: `HOST=::`, `PORT=4000`. Volume at `/data`, `UPLOAD_DIR=/data/uploads` |
+| api | `infra/railway/api.json` | Runs migrations before each deploy, and creates the super admin when `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` are set (remove them after the first sign-in). Private only: `HOST=::`, `PORT=4000`. Volume at `/data`, `UPLOAD_DIR=/data/uploads` |
 | worker | `infra/railway/worker.json` | `INSTALL_CHROMIUM=true` (build arg), `CHROME_PATH=/usr/bin/chromium` |
 | collector | `infra/railway/collector.json` | Private only: `HOST=::`, `COLLECTOR_PORT=4100` |
 | web | `infra/railway/web.json` | The only public service, port 3000. `API_URL=http://api.railway.internal:4000`, `COLLECTOR_URL=http://collector.railway.internal:4100` |
