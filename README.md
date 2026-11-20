@@ -46,7 +46,7 @@ conventions, testing, deployment and troubleshooting in more depth.
 
 ## Open items
 
-- Deployment kit for Railway (Dockerfile with Chromium, per-service config) and custom domains through Railway's API
+- Wildcard and custom domains on Railway (a wildcard domain for agency subdomains, and agencies' custom domains through Railway's API)
 - Cost spike with real engine keys, then credit costs and plan prices
 - Payments and GST invoices for agencies
 - Terms and privacy policy pages
@@ -529,6 +529,23 @@ storage first; `src/routes/files.ts` is the only file that touches the disk.
 - In production the owner role should not be a superuser, and `geo_app` must
   never be one (superusers bypass row-level security).
 - Shared hosting cannot run this; use a VPS or a container platform.
+
+### On Railway
+
+The `Dockerfile` builds one image for every service; each service's start command comes from its config file in `infra/railway/` (set it under the service's Settings → Config-as-code). One project holds six services:
+
+| Service | Config file | Notes |
+|---|---|---|
+| Postgres | (Railway database) | |
+| Redis | (Railway database) | |
+| api | `infra/railway/api.json` | Runs migrations before each deploy. Private only: `HOST=::`, `PORT=4000`. Volume at `/data`, `UPLOAD_DIR=/data/uploads` |
+| worker | `infra/railway/worker.json` | `INSTALL_CHROMIUM=true` (build arg), `CHROME_PATH=/usr/bin/chromium` |
+| collector | `infra/railway/collector.json` | Private only: `HOST=::`, `COLLECTOR_PORT=4100` |
+| web | `infra/railway/web.json` | The only public service, port 3000. `API_URL=http://api.railway.internal:4000`, `COLLECTOR_URL=http://collector.railway.internal:4100` |
+
+Shared variables: `DATABASE_OWNER_URL` (the Postgres service's `DATABASE_URL`), `DATABASE_URL` (the same host and database as user `geo_app` with `APP_DB_PASSWORD`), `REDIS_URL` (the Redis service's URL plus `?family=0`, since Railway's private network is IPv6), `SESSION_SECRET`, `INTERNAL_PROXY_SECRET`, `SETTINGS_ENCRYPTION_KEY`, `PLATFORM_DOMAIN`, `PUBLIC_SCHEME=https`, empty `PUBLIC_PORT`, `NODE_ENV=production`.
+
+Agency subdomains need a wildcard domain (`*.PLATFORM_DOMAIN`) on the web service. Until one is added, `PLATFORM_DOMAIN` can be the web service's `*.up.railway.app` address: signup and super admin work there, but agency workspaces do not open.
 
 ## Cost spike
 
